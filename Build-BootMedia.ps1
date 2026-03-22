@@ -151,7 +151,7 @@ function Get-ADKPaths {
         Root         = $adkRoot
         DeployTools  = $deployToolsPath
         WinPE        = $winpePath
-        CopypePath   = Join-Path $deployToolsPath "amd64\copype.cmd" -ErrorAction SilentlyContinue
+        CopypePath   = Join-Path $deployToolsPath "amd64\copype.cmd"
         DismPath     = Join-Path $deployToolsPath "amd64\DISM\dism.exe"
         OscdimgPath  = Join-Path $deployToolsPath "amd64\Oscdimg\oscdimg.exe"
         WinPEOCs     = Join-Path $winpePath "amd64\WinPE_OCs"
@@ -337,6 +337,11 @@ function Edit-WinPEImage {
         # Create custom startnet.cmd
         Write-Status "Configuring WinPE startup (startnet.cmd)..." -Type Info
 
+        # Resolve GitHub coordinates for the bootstrap fallback URL
+        $ghOwner = if ($config) { $config.github.owner } else { "araduti" }
+        $ghRepo = if ($config) { $config.github.repo } else { "TCGCloud_2.1.1" }
+        $bootstrapUrl = "https://raw.githubusercontent.com/$ghOwner/$ghRepo/main/Scripts/StartNet/_init.ps1"
+
         $startnetPath = Join-Path $MountPath "Windows\System32\startnet.cmd"
         $startnetContent = @"
 @echo off
@@ -355,7 +360,7 @@ if not exist X:\OSDCloud\Config\Scripts\init.ps1 (
     echo Scripts not found locally, attempting network bootstrap...
     powershell.exe -NoProfile -ExecutionPolicy Bypass -Command ^
         "& { Start-Sleep -Seconds 5; wpeinit; Start-Sleep -Seconds 10; " ^
-        "Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/$($config.github.owner)/$($config.github.repo)/main/Scripts/StartNet/_init.ps1' " ^
+        "Invoke-WebRequest -Uri '$bootstrapUrl' " ^
         "-OutFile 'X:\bootstrap.ps1' -UseBasicParsing; & X:\bootstrap.ps1 }"
 )
 "@

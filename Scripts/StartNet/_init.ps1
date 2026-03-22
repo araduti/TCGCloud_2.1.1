@@ -122,21 +122,31 @@ if ($script:BootMode -eq "USB") {
 else {
     # Network boot: WiFi may already be connected, or use netsh
     try {
-        # Check if already connected
+        # Check if already connected (ping is more reliable than Test-Connection in WinPE)
         $pingCheck = ping.exe -n 1 -w 2000 8.8.8.8 2>$null
-        if ($pingCheck -match "TTL=") {
+        if ($pingCheck -match "TTL=|ttl=") {
             Write-Host "Status: Network already connected" -ForegroundColor Green
         }
         else {
             # Try to connect via stored WiFi profiles
-            $profiles = netsh wlan show profiles 2>$null | Select-String "All User Profile\s+:\s+(.+)" |
-                ForEach-Object { $_.Matches.Groups[1].Value.Trim() }
+            # Parse netsh XML output for locale-independent profile names
             $connected = $false
+            try {
+                $profileXml = [xml](netsh wlan show profiles 2>$null | Out-String)
+                # Fallback: try text parsing for profile names (works in WinPE English locale)
+                $profiles = netsh wlan show profiles 2>$null |
+                    Select-String ":\s+(.+)$" |
+                    ForEach-Object { $_.Matches.Groups[1].Value.Trim() }
+            }
+            catch {
+                $profiles = @()
+            }
+
             foreach ($profile in $profiles) {
                 netsh wlan connect name="$profile" 2>$null | Out-Null
                 Start-Sleep -Seconds 5
                 $retryPing = ping.exe -n 1 -w 2000 8.8.8.8 2>$null
-                if ($retryPing -match "TTL=") {
+                if ($retryPing -match "TTL=|ttl=") {
                     Write-Host "Status: Connected to WiFi profile: $profile" -ForegroundColor Green
                     $connected = $true
                     break

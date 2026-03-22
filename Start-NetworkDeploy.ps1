@@ -289,9 +289,9 @@ function New-WinPEBootEntry {
     # Determine boot partition drive letter (usually C:)
     $bootDrive = Split-Path -Qualifier $WimPath
 
-    # Calculate relative paths from the drive root
-    $wimRelative = $WimPath.Substring(2)  # Strip drive letter e.g. \TCGCloud\boot.wim
-    $sdiRelative = $SdiPath.Substring(2)
+    # Calculate relative paths from the drive root (strip "C:" prefix)
+    $wimRelative = $WimPath.Substring($bootDrive.Length)  # e.g. \TCGCloud\boot.wim
+    $sdiRelative = $SdiPath.Substring($bootDrive.Length)
 
     # Ensure ramdisk options exist
     Write-Status "Setting up RAM disk options..." -Type Info
@@ -551,6 +551,7 @@ $requiredScripts = @(
     "StartNet\_init.ps1",
     "StartNet\Show-OSDCloudOverlay.ps1"
 )
+# Note: backslash before underscore is literal path separator, not escape
 
 foreach ($script in $requiredScripts) {
     $scriptPath = Join-Path $scriptsDir $script
