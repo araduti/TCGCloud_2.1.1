@@ -49,7 +49,7 @@ function Connect-TCGWiFi {
 
     foreach ($profile in $profiles) {
         Write-TCGStatus "Trying WiFi profile: $profile" -Type Info
-        netsh wlan connect name="$profile" 2>$null | Out-Null
+        netsh wlan connect name="$profile" 2>&1 | Out-Null
         Start-Sleep -Seconds $TimeoutSeconds
         if (Test-Connection -ComputerName 8.8.8.8 -Count 1 -Quiet -ErrorAction SilentlyContinue) {
             Write-TCGStatus "Connected via profile: $profile" -Type Success

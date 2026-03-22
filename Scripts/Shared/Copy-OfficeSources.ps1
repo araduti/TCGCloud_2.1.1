@@ -46,7 +46,7 @@ function Copy-OfficeSourcesToLocal {
             $officeSize = (Get-ChildItem -Path $officeSourcePath -Recurse -ErrorAction SilentlyContinue |
                 Measure-Object -Property Length -Sum).Sum / 1GB
             $freeSpace  = (Get-CimInstance -ClassName Win32_LogicalDisk -Filter "DeviceID='C:'").FreeSpace / 1GB
-            Write-Host ("Office size: {0:N2} GB, Free space on C:: {1:N2} GB" -f $officeSize, $freeSpace) -ForegroundColor Yellow
+            Write-Host ("Office size: {0:N2} GB, Free space on C: {1:N2} GB" -f $officeSize, $freeSpace) -ForegroundColor Yellow
 
             if ($freeSpace -lt ($officeSize * 1.5)) {
                 Write-Host "Warning: Limited free space on C: drive." -ForegroundColor Yellow
