@@ -1,21 +1,165 @@
-# Import the OSD module
+# Detect boot mode: USB (OSD module available) or Network (RAM-disk boot)
+$script:BootMode = "USB"
+$script:ScriptsRoot = $PSScriptRoot  # Default: scripts alongside this file
+
+# Try to import OSD module (available in USB boot via OSDCloud)
 Write-Host "Status: Importing OSD Module" -ForegroundColor Cyan
 try {
     Import-Module OSD -ErrorAction Stop
+    Write-Host "Status: OSD Module loaded (USB boot mode)" -ForegroundColor Green
 }
 catch {
-    Write-Host "Error: Failed to import OSD Module" -ForegroundColor Red
-    exit
+    Write-Host "Status: OSD Module not available — using network boot mode" -ForegroundColor Yellow
+    $script:BootMode = "Network"
 }
 
-# Start WiFi connection first
-Write-Host "Status: Starting WiFi connection" -ForegroundColor Cyan
-try {
-    Start-WinREWiFi -WirelessConnect -ErrorAction Stop
+# Check if TCGCloud scripts are present; if not, download from GitHub
+$overlayCheck = Join-Path $PSScriptRoot "Show-OSDCloudOverlay.ps1"
+if (-not (Test-Path $overlayCheck)) {
+    Write-Host "Status: Scripts not found locally, attempting network download..." -ForegroundColor Yellow
+    $script:BootMode = "Network"
+
+    # Load deploy-config.json if available
+    $deployConfig = $null
+    $configLocations = @(
+        "X:\OSDCloud\Config\deploy-config.json",
+        "X:\deploy-config.json"
+    )
+    foreach ($cfgPath in $configLocations) {
+        if (Test-Path $cfgPath) {
+            $deployConfig = Get-Content $cfgPath -Raw | ConvertFrom-Json
+            break
+        }
+    }
+
+    if ($deployConfig) {
+        $owner = $deployConfig.github.owner
+        $repo = $deployConfig.github.repo
+        $tag = $deployConfig.github.releaseTag
+    }
+    else {
+        $owner = "araduti"
+        $repo = "TCGCloud_2.1.1"
+        $tag = "latest"
+    }
+
+    $scriptsZip = $null
+    $destDir = "X:\OSDCloud\Config\Scripts"
+
+    # Try downloading scripts package from GitHub Release
+    try {
+        if ($tag -eq "latest") {
+            $apiUrl = "https://api.github.com/repos/$owner/$repo/releases/latest"
+        }
+        else {
+            $apiUrl = "https://api.github.com/repos/$owner/$repo/releases/tags/$tag"
+        }
+
+        $release = Invoke-RestMethod -Uri $apiUrl -Headers @{ 'User-Agent' = 'TCGCloud' } -ErrorAction Stop
+        $asset = $release.assets | Where-Object { $_.name -eq "tcgcloud-scripts.zip" }
+
+        if ($asset) {
+            $scriptsZip = "X:\tcgcloud-scripts.zip"
+            Write-Host "Status: Downloading scripts from GitHub Release..." -ForegroundColor Cyan
+            Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $scriptsZip -UseBasicParsing
+        }
+    }
+    catch {
+        Write-Host "Status: Could not reach GitHub API, trying direct repository download..." -ForegroundColor Yellow
+    }
+
+    # Fallback: download repo archive
+    if (-not $scriptsZip -or -not (Test-Path $scriptsZip)) {
+        try {
+            $zipUrl = "https://github.com/$owner/$repo/archive/refs/heads/main.zip"
+            $repoZip = "X:\tcgcloud-repo.zip"
+            Write-Host "Status: Downloading repository archive..." -ForegroundColor Cyan
+            Invoke-WebRequest -Uri $zipUrl -OutFile $repoZip -UseBasicParsing
+
+            $extractDir = "X:\tcgcloud-extract"
+            Expand-Archive -Path $repoZip -DestinationPath $extractDir -Force
+            $repoRoot = Get-ChildItem $extractDir | Select-Object -First 1
+            $srcScripts = Join-Path $repoRoot.FullName "Scripts"
+
+            if (Test-Path $srcScripts) {
+                New-Item -Path $destDir -ItemType Directory -Force | Out-Null
+                Copy-Item "$srcScripts\*" $destDir -Recurse -Force
+                Write-Host "Status: Scripts downloaded and extracted" -ForegroundColor Green
+            }
+
+            Remove-Item $repoZip -Force -ErrorAction SilentlyContinue
+            Remove-Item $extractDir -Recurse -Force -ErrorAction SilentlyContinue
+        }
+        catch {
+            Write-Host "Error: Failed to download scripts from GitHub: $_" -ForegroundColor Red
+            Write-Host "Error: Cannot continue without deployment scripts" -ForegroundColor Red
+            exit
+        }
+    }
+    else {
+        # Extract the scripts zip
+        New-Item -Path $destDir -ItemType Directory -Force | Out-Null
+        Expand-Archive -Path $scriptsZip -DestinationPath "X:\OSDCloud\Config" -Force
+        Remove-Item $scriptsZip -Force -ErrorAction SilentlyContinue
+        Write-Host "Status: Scripts extracted from release package" -ForegroundColor Green
+    }
+
+    # Update scripts root to the downloaded location
+    $script:ScriptsRoot = Join-Path $destDir "StartNet"
 }
-catch {
-    Write-Host "Error: Failed to start WiFi connection" -ForegroundColor Red
-    exit
+
+# Start WiFi connection
+Write-Host "Status: Starting WiFi connection" -ForegroundColor Cyan
+if ($script:BootMode -eq "USB") {
+    try {
+        Start-WinREWiFi -WirelessConnect -ErrorAction Stop
+    }
+    catch {
+        Write-Host "Error: Failed to start WiFi connection" -ForegroundColor Red
+        exit
+    }
+}
+else {
+    # Network boot: WiFi may already be connected, or use netsh
+    try {
+        # Check if already connected (ping is more reliable than Test-Connection in WinPE)
+        $pingCheck = ping.exe -n 1 -w 2000 8.8.8.8 2>$null
+        if ($pingCheck -match "TTL=|ttl=") {
+            Write-Host "Status: Network already connected" -ForegroundColor Green
+        }
+        else {
+            # Try to connect via stored WiFi profiles
+            # Parse netsh XML output for locale-independent profile names
+            $connected = $false
+            try {
+                $profileXml = [xml](netsh wlan show profiles 2>$null | Out-String)
+                # Fallback: try text parsing for profile names (works in WinPE English locale)
+                $profiles = netsh wlan show profiles 2>$null |
+                    Select-String ":\s+(.+)$" |
+                    ForEach-Object { $_.Matches.Groups[1].Value.Trim() }
+            }
+            catch {
+                $profiles = @()
+            }
+
+            foreach ($profile in $profiles) {
+                netsh wlan connect name="$profile" 2>$null | Out-Null
+                Start-Sleep -Seconds 5
+                $retryPing = ping.exe -n 1 -w 2000 8.8.8.8 2>$null
+                if ($retryPing -match "TTL=|ttl=") {
+                    Write-Host "Status: Connected to WiFi profile: $profile" -ForegroundColor Green
+                    $connected = $true
+                    break
+                }
+            }
+            if (-not $connected) {
+                Write-Host "Warning: Could not connect to WiFi automatically. Ethernet may be required." -ForegroundColor Yellow
+            }
+        }
+    }
+    catch {
+        Write-Host "Warning: WiFi setup encountered an error: $_" -ForegroundColor Yellow
+    }
 }
 
 # Confirm network connection
@@ -157,7 +301,11 @@ try {
         $osSelection | ConvertTo-Json | Set-Content -Path "X:\OSDCloud\Config\Scripts\Custom\os-selection.json" -Force
         
         # Launch the overlay UI script
-        $overlayScript = Join-Path $PSScriptRoot "Show-OSDCloudOverlay.ps1"
+        $overlayScript = Join-Path $script:ScriptsRoot "Show-OSDCloudOverlay.ps1"
+        if (-not (Test-Path $overlayScript)) {
+            # Fallback to PSScriptRoot
+            $overlayScript = Join-Path $PSScriptRoot "Show-OSDCloudOverlay.ps1"
+        }
         Write-Host "Launching OSDCloud Overlay from: $overlayScript" -ForegroundColor Green
         & $overlayScript
     }
