@@ -1,12 +1,12 @@
 # TCGCloud 2.1.1
 
-Enterprise Windows deployment toolkit built on WinPE with Microsoft Autopilot integration. Creates bootable USB drives that automate Windows installation, device registration, and post-deployment configuration for corporate environments.
+Enterprise Windows deployment toolkit built on WinPE with Microsoft Autopilot integration. Supports two deployment methods: **USB-based** (traditional) and **network-based** (no USB required — boot media hosted on GitHub).
 
 ## What It Does
 
 TCGCloud automates the full lifecycle of Windows device deployment:
 
-1. **USB Creation** — Builds a bootable WinPE USB drive with Windows ADK, custom scripts, and OS installation media
+1. **Boot Media** — Either create a USB drive or download WinPE boot media from GitHub on demand
 2. **Boot & Network** — Boots into WinPE, connects to WiFi, and detects device language
 3. **Autopilot Detection** — Checks if the device is already registered in Microsoft Autopilot via Graph API
 4. **Interactive UI** — WPF overlay lets technicians select Country, Device Type (Persona), and Language — or auto-deploys if already registered
@@ -14,23 +14,81 @@ TCGCloud automates the full lifecycle of Windows device deployment:
 6. **OS Deployment** — Applies the Windows image via OSDCloud with enterprise settings
 7. **Post-Install** — Runs Windows Update, installs drivers, deploys Office, and cleans up
 
+## Deployment Methods
+
+### Option A: Network Deployment (No USB Required)
+
+Downloads WinPE boot media from a GitHub Release, configures a one-time RAM-disk boot, and reboots into WinPE. Scripts are either embedded in the WIM or downloaded from GitHub at boot time.
+
+```powershell
+# One-liner: download and run
+irm https://github.com/araduti/TCGCloud_2.1.1/releases/latest/download/Start-NetworkDeploy.ps1 -OutFile Start-NetworkDeploy.ps1
+.\Start-NetworkDeploy.ps1
+```
+
+```powershell
+# With options
+.\Start-NetworkDeploy.ps1 -ReleaseTag "v2.1.1" -SkipReboot   # Stage only, don't reboot
+.\Start-NetworkDeploy.ps1 -CreateISO                           # Create bootable ISO instead
+.\Start-NetworkDeploy.ps1 -Force                                # Skip confirmation prompts
+```
+
+### Option B: USB Deployment (Traditional)
+
+```powershell
+# Default: Windows 11 24H2 Enterprise
+.\Setup-OSDCloudUSB.ps1
+
+# With specific OS
+.\Setup-OSDCloudUSB.ps1 -OSName "Windows 10 22H2"
+
+# Custom working directory
+.\Setup-OSDCloudUSB.ps1 -WorkingDirectory "D:\OSDCloud-Build"
+
+# Skip OS media (scripts only)
+.\Setup-OSDCloudUSB.ps1 -NoOS
+```
+
+### Building Boot Media
+
+To create the `boot.wim` for GitHub hosting (requires Windows ADK):
+
+```powershell
+# Build boot.wim with embedded scripts
+.\Build-BootMedia.ps1
+
+# Build with ISO output
+.\Build-BootMedia.ps1 -CreateISO -OutputPath D:\Release
+
+# Inject additional drivers
+.\Build-BootMedia.ps1 -DriverPaths "C:\Drivers\WiFi","C:\Drivers\Storage"
+```
+
+Then upload `boot.wim`, `boot.sdi`, and `tcgcloud-scripts.zip` to a GitHub Release.
+
 ## Architecture
 
 ```
-┌─── HOST (Windows 10/11 + ADK) ──────────────────────────────┐
-│  Setup-OSDCloudUSB.ps1                                       │
-│  ├─ Install Windows ADK + WinPE add-on                       │
-│  ├─ Create OSDCloud workspace & template                     │
-│  ├─ Copy TCGCloud scripts to USB                             │
-│  ├─ Add Windows install media + Office sources               │
-│  └─ Output: Bootable USB                                     │
+┌─── DEPLOYMENT ENTRY POINTS ──────────────────────────────────┐
+│                                                              │
+│  Option A: Network                Option B: USB              │
+│  Start-NetworkDeploy.ps1          Setup-OSDCloudUSB.ps1      │
+│  ├─ Download boot.wim             ├─ Install ADK + WinPE     │
+│  │  from GitHub Release           ├─ Create OSDCloud media   │
+│  ├─ Download scripts              ├─ Copy scripts to USB     │
+│  ├─ Configure RAM-disk boot       ├─ Add OS + Office media   │
+│  └─ Reboot into WinPE             └─ Boot from USB           │
+│                                                              │
+│  Build-BootMedia.ps1 ← Builds boot.wim for GitHub hosting   │
 └──────────────────────────────────────────────────────────────┘
                             ↓
 ┌─── WINPE BOOT (Target Device) ───────────────────────────────┐
 │  startnet.cmd → Scripts/init.ps1                             │
 │  ├─ OS version selection (Win11 24H2 / Win10 22H2)          │
 │  └─ Scripts/StartNet/_init.ps1                               │
-│     ├─ Import OSD module, connect WiFi                       │
+│     ├─ Detect boot mode (USB vs Network)                     │
+│     ├─ If Network: download scripts from GitHub              │
+│     ├─ Connect WiFi (OSD module or netsh fallback)           │
 │     ├─ Detect language from install media                    │
 │     └─ Launch Show-OSDCloudOverlay.ps1                       │
 └──────────────────────────────────────────────────────────────┘
@@ -64,11 +122,16 @@ TCGCloud automates the full lifecycle of Windows device deployment:
 
 ```
 TCGCloud_2.1.1/
-├── Setup-OSDCloudUSB.ps1              # Main USB creation orchestrator (run on host)
+├── Start-NetworkDeploy.ps1            # Network deployment — download boot media & reboot
+├── Build-BootMedia.ps1                # Build boot.wim from ADK with embedded scripts
+├── Setup-OSDCloudUSB.ps1              # USB creation orchestrator (traditional flow)
+├── deploy-config.json                 # Central config: GitHub URLs, OS defaults
+├── .github/workflows/
+│   └── build-release.yml              # CI: package scripts & create GitHub Releases
 ├── Scripts/
 │   ├── init.ps1                       # OS version selection dialog (WinPE entry point)
 │   ├── StartNet/                      # WinPE runtime scripts
-│   │   ├── _init.ps1                  # Network setup & language detection
+│   │   ├── _init.ps1                  # Boot mode detection, network setup, language
 │   │   ├── Show-OSDCloudOverlay.ps1   # Main WPF UI & deployment orchestration
 │   │   ├── OSDCloudOverlay.xaml       # WPF window layout definition
 │   │   ├── StatusPatterns.json        # Log-to-message pattern mapping (100+ patterns)
@@ -100,6 +163,17 @@ TCGCloud_2.1.1/
 
 ## Prerequisites
 
+### For Network Deployment (Start-NetworkDeploy.ps1)
+
+| Requirement | Details |
+|---|---|
+| **OS** | Windows 10/11 on the target machine |
+| **PowerShell** | Version 5.1+ running as Administrator |
+| **Internet** | Required to download boot media from GitHub |
+| **Azure AD App** | Service principal with Autopilot permissions |
+
+### For USB Deployment (Setup-OSDCloudUSB.ps1)
+
 | Requirement | Details |
 |---|---|
 | **OS** | Windows 10/11 (host machine for USB creation) |
@@ -110,33 +184,22 @@ TCGCloud_2.1.1/
 | **Internet** | Required for ADK download, PSGallery modules, Graph API |
 | **Azure AD App** | Service principal with Autopilot permissions |
 
+### For Building Boot Media (Build-BootMedia.ps1)
+
+| Requirement | Details |
+|---|---|
+| **Windows ADK** | With WinPE add-on installed |
+| **PowerShell** | Version 5.1+ running as Administrator |
+
 ### PowerShell Modules (Auto-Installed)
 
-- **OSDCloud** — Workspace, template, USB media, and WinPE customization
-- **OSD** — Core deployment helper functions (used in WinPE)
+- **OSDCloud** — Workspace, template, USB media, and WinPE customization (USB mode)
+- **OSD** — Core deployment helper functions (USB mode WinPE)
 - **PSWindowsUpdate** — Driver and OS update management (installed during deployment)
 
-## Usage
+## Deploying a Device
 
-### Create a Bootable USB
-
-```powershell
-# Default: Windows 11 24H2 Enterprise
-.\Setup-OSDCloudUSB.ps1
-
-# With specific OS
-.\Setup-OSDCloudUSB.ps1 -OSName "Windows 10 22H2"
-
-# Custom working directory
-.\Setup-OSDCloudUSB.ps1 -WorkingDirectory "D:\OSDCloud-Build"
-
-# Skip OS media (scripts only)
-.\Setup-OSDCloudUSB.ps1 -NoOS
-```
-
-### Deploy a Device
-
-1. Boot target device from the USB drive
+1. Boot target device from USB drive or via network deploy reboot
 2. Select Windows version (Win11 24H2 is default, auto-selects after 10s)
 3. Wait for WiFi connection and Autopilot status check
 4. **If device is pre-registered**: deployment starts automatically
@@ -144,25 +207,51 @@ TCGCloud_2.1.1/
 6. Monitor progress via the overlay UI (or toggle Technical View for raw logs)
 7. Device reboots into Windows OOBE, then Autopilot takes over
 
-## OSDCloud Dependency Summary
+## GitHub Release Workflow
 
-This project currently depends on the [OSDCloud](https://www.osdcloud.com/) PowerShell module for several core functions:
+The CI/CD pipeline (`.github/workflows/build-release.yml`) automates packaging:
 
-| OSDCloud Function | Where Used | Purpose |
+1. **On tag push** (e.g., `git tag v2.1.1 && git push --tags`): packages scripts into `tcgcloud-scripts.zip` and creates a GitHub Release
+2. **Manual dispatch**: trigger from the Actions tab in GitHub
+3. **Boot media**: `boot.wim` and `boot.sdi` must be built locally with `Build-BootMedia.ps1` and uploaded to the release manually (requires Windows ADK)
+
+### Release Asset Structure
+
+| Asset | How Created | Purpose |
 |---|---|---|
-| `New-OSDCloudTemplate` | Setup-OSDCloudUSB.ps1 | Creates WinPE template with drivers |
-| `Get-OSDCloudTemplate` | Setup-OSDCloudUSB.ps1 | Checks for existing template |
-| `New-OSDCloudWorkspace` | Setup-OSDCloudUSB.ps1 | Creates deployment workspace structure |
-| `New-OSDCloudUSB` | Setup-OSDCloudUSB.ps1 | Formats USB and copies boot media |
-| `Edit-OSDCloudWinPE` | Setup-OSDCloudUSB.ps1 | Customizes WinPE (wallpaper, drivers, WiFi) |
-| `Update-OSDCloudUSB` | Setup-OSDCloudUSB.ps1 | Adds OS installation files to USB |
-| `Import-Module OSD` | _init.ps1, Show-OSDCloudOverlay.ps1 | Core OSD helper functions in WinPE |
-| `Start-OSDCloud` | Show-OSDCloudOverlay.ps1 | Executes Windows image deployment |
-| `Start-WinREWiFi` | _init.ps1 | WiFi connection in WinPE |
+| `tcgcloud-scripts.zip` | CI (automatic) | Scripts package for WinPE |
+| `Start-NetworkDeploy.ps1` | CI (automatic) | Network deployment launcher |
+| `Build-BootMedia.ps1` | CI (automatic) | Boot media builder |
+| `boot.wim` | Manual upload | WinPE boot image |
+| `boot.sdi` | Manual upload | RAM-disk System Deployment Image |
 
-See [OSDCLOUD_REPLACEMENT_PLAN.md](OSDCLOUD_REPLACEMENT_PLAN.md) for the migration strategy.
+## Configuration
 
-## Key Configuration
+### deploy-config.json
+
+Central configuration for both network and USB deployment:
+
+```json
+{
+    "github": {
+        "owner": "araduti",
+        "repo": "TCGCloud_2.1.1",
+        "releaseTag": "latest"
+    },
+    "bootMedia": {
+        "wimFileName": "boot.wim",
+        "sdiFileName": "boot.sdi",
+        "scriptsPackage": "tcgcloud-scripts.zip"
+    },
+    "defaults": {
+        "osVersion": "Windows 11",
+        "osBuild": "24H2",
+        "osEdition": "Enterprise",
+        "osActivation": "Volume",
+        "osLanguage": "en-us"
+    }
+}
+```
 
 ### OSDCloud Settings (at deployment time)
 
@@ -184,14 +273,23 @@ $Global:MyOSDCloud = @{
 }
 ```
 
-### Start-OSDCloud Parameters
+## OSDCloud Dependency Summary
 
-```powershell
-Start-OSDCloud -OSLanguage "en-us" `
-    -OSVersion "Windows 11" -OSBuild "24H2" `
-    -OSEdition "Enterprise" -OSActivation "Volume" `
-    -SkipAutopilot -SkipODT -ZTI
-```
+This project currently depends on the [OSDCloud](https://www.osdcloud.com/) PowerShell module for several core functions. The network deployment path reduces this dependency — `_init.ps1` now gracefully handles the absence of the OSD module by falling back to native networking.
+
+| OSDCloud Function | Where Used | Purpose | Network Mode |
+|---|---|---|---|
+| `New-OSDCloudTemplate` | Setup-OSDCloudUSB.ps1 | Creates WinPE template with drivers | Not needed |
+| `Get-OSDCloudTemplate` | Setup-OSDCloudUSB.ps1 | Checks for existing template | Not needed |
+| `New-OSDCloudWorkspace` | Setup-OSDCloudUSB.ps1 | Creates deployment workspace structure | Not needed |
+| `New-OSDCloudUSB` | Setup-OSDCloudUSB.ps1 | Formats USB and copies boot media | Not needed |
+| `Edit-OSDCloudWinPE` | Setup-OSDCloudUSB.ps1 | Customizes WinPE (wallpaper, drivers, WiFi) | Not needed |
+| `Update-OSDCloudUSB` | Setup-OSDCloudUSB.ps1 | Adds OS installation files to USB | Not needed |
+| `Import-Module OSD` | _init.ps1, Show-OSDCloudOverlay.ps1 | Core OSD helper functions in WinPE | Optional (graceful fallback) |
+| `Start-OSDCloud` | Show-OSDCloudOverlay.ps1 | Executes Windows image deployment | Still required |
+| `Start-WinREWiFi` | _init.ps1 | WiFi connection in WinPE | Replaced by netsh fallback |
+
+See [OSDCLOUD_REPLACEMENT_PLAN.md](OSDCLOUD_REPLACEMENT_PLAN.md) for the full migration strategy.
 
 ## Improvement Opportunities
 
@@ -211,7 +309,6 @@ Start-OSDCloud -OSLanguage "en-us" `
 
 ### Maintainability
 - **No tests** — Add Pester tests for critical functions (Graph API, disk detection, pattern matching)
-- **No CI/CD** — Add GitHub Actions for linting (PSScriptAnalyzer) and testing
 - **Version tracking** — No version metadata beyond the repo name
 
 ## License

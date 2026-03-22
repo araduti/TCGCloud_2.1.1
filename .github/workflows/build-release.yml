@@ -1,0 +1,130 @@
+name: Build & Release TCGCloud
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      create_release:
+        description: 'Create a GitHub Release'
+        required: false
+        default: 'true'
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  package-scripts:
+    name: Package Scripts & Create Release
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create scripts package
+        shell: pwsh
+        run: |
+          $outputDir = ".\Output"
+          New-Item -Path $outputDir -ItemType Directory -Force | Out-Null
+
+          # Package Scripts directory
+          $zipStaging = "$env:TEMP\tcgcloud-staging"
+          New-Item -Path "$zipStaging\Scripts" -ItemType Directory -Force | Out-Null
+          Copy-Item ".\Scripts\*" "$zipStaging\Scripts" -Recurse -Force
+          Copy-Item ".\deploy-config.json" $zipStaging -Force -ErrorAction SilentlyContinue
+
+          $zipPath = Join-Path $outputDir "tcgcloud-scripts.zip"
+          Compress-Archive -Path "$zipStaging\*" -DestinationPath $zipPath -Force
+
+          $zipSize = [math]::Round((Get-Item $zipPath).Length / 1MB, 2)
+          Write-Host "Created tcgcloud-scripts.zip ($zipSize MB)"
+
+          # Also package the deployment scripts for convenience
+          Copy-Item ".\Start-NetworkDeploy.ps1" $outputDir -Force
+          Copy-Item ".\Build-BootMedia.ps1" $outputDir -Force
+          Copy-Item ".\Setup-OSDCloudUSB.ps1" $outputDir -Force
+          Copy-Item ".\deploy-config.json" $outputDir -Force
+
+      - name: Upload scripts artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tcgcloud-scripts
+          path: Output/
+          retention-days: 90
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && github.event.inputs.create_release == 'true')
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag = if ($env:GITHUB_REF -match 'refs/tags/(.+)') { $Matches[1] } else { "v$(Get-Date -Format 'yyyy.MM.dd')" }
+
+          $releaseNotes = @"
+          ## TCGCloud $tag
+
+          ### Included Assets
+          | File | Description |
+          |------|-------------|
+          | ``tcgcloud-scripts.zip`` | TCGCloud deployment scripts package |
+          | ``Start-NetworkDeploy.ps1`` | Network deployment launcher (no USB required) |
+          | ``Build-BootMedia.ps1`` | Boot media builder (requires Windows ADK) |
+          | ``Setup-OSDCloudUSB.ps1`` | USB deployment creator (original flow) |
+          | ``deploy-config.json`` | Deployment configuration |
+
+          ### Boot Media (boot.wim + boot.sdi)
+          > **Note:** ``boot.wim`` and ``boot.sdi`` must be built locally using ``Build-BootMedia.ps1``
+          > on a machine with Windows ADK installed, then uploaded to this release manually.
+          >
+          > ```powershell
+          > .\Build-BootMedia.ps1 -OutputPath .\Output
+          > ```
+
+          ### Quick Start — Network Deployment
+          ```powershell
+          # On the target machine (requires admin):
+          irm https://github.com/${{ github.repository }}/releases/download/$tag/Start-NetworkDeploy.ps1 -OutFile Start-NetworkDeploy.ps1
+          .\Start-NetworkDeploy.ps1
+          ```
+
+          ### Quick Start — USB Deployment
+          ```powershell
+          .\Setup-OSDCloudUSB.ps1
+          ```
+          "@
+
+          # Create release using GitHub CLI
+          $outputFiles = Get-ChildItem ".\Output\*" -File
+          $assetArgs = $outputFiles | ForEach-Object { $_.FullName }
+
+          gh release create $tag @assetArgs --title "TCGCloud $tag" --notes $releaseNotes
+
+  # Optional: Build boot.wim on a self-hosted runner with ADK
+  # Uncomment this job if you have a self-hosted Windows runner with ADK installed
+  #
+  # build-boot-media:
+  #   name: Build Boot Media (WinPE)
+  #   runs-on: [self-hosted, windows, adk]
+  #   needs: package-scripts
+  #   steps:
+  #     - name: Checkout repository
+  #       uses: actions/checkout@v4
+  #
+  #     - name: Build boot.wim
+  #       shell: pwsh
+  #       run: |
+  #         .\Build-BootMedia.ps1 -OutputPath .\Output -CreateISO
+  #
+  #     - name: Upload boot media to release
+  #       if: startsWith(github.ref, 'refs/tags/v')
+  #       shell: pwsh
+  #       env:
+  #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  #       run: |
+  #         $tag = ($env:GITHUB_REF -replace 'refs/tags/', '')
+  #         gh release upload $tag .\Output\boot.wim .\Output\boot.sdi --clobber
+  #         if (Test-Path .\Output\TCGCloud-WinPE.iso) {
+  #           gh release upload $tag .\Output\TCGCloud-WinPE.iso --clobber
+  #         }

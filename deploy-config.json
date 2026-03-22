@@ -1,0 +1,23 @@
+{
+    "github": {
+        "owner": "araduti",
+        "repo": "TCGCloud_2.1.1",
+        "releaseTag": "latest"
+    },
+    "bootMedia": {
+        "wimFileName": "boot.wim",
+        "sdiFileName": "boot.sdi",
+        "scriptsPackage": "tcgcloud-scripts.zip"
+    },
+    "defaults": {
+        "osVersion": "Windows 11",
+        "osBuild": "24H2",
+        "osEdition": "Enterprise",
+        "osActivation": "Volume",
+        "osLanguage": "en-us"
+    },
+    "paths": {
+        "localStaging": "C:\\TCGCloud",
+        "winpeScripts": "X:\\OSDCloud\\Config\\Scripts"
+    }
+}
