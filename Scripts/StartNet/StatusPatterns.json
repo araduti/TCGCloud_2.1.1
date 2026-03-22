@@ -1,0 +1,384 @@
+{
+    "patterns": [
+        {
+            "category": "General",
+            "pattern": "^Status:\\s*(.+)$",
+            "message": "$1"
+        },
+        {
+            "category": "OS Selection",
+            "pattern": "OSDStatus: Starting OSDCloud with language .+ and OS (.+)",
+            "message": "Installing $1"
+        },
+        {
+            "category": "Network",
+            "pattern": "Checking network connectivity",
+            "message": "Verifying network connection..."
+        },
+        {
+            "category": "Network",
+            "pattern": "Testing network connectivity",
+            "message": "Testing network connection speed..."
+        },
+        {
+            "category": "Network",
+            "pattern": "Network connection verified",
+            "message": "Network connection confirmed"
+        },
+        {
+            "category": "OSDCloud",
+            "pattern": "OSDCloud Task Sequence",
+            "message": "Initializing automated deployment sequence"
+        },
+        {
+            "category": "RAID",
+            "pattern": "Starting custom disk initialization with RAID support",
+            "message": "Checking for advanced storage configurations"
+        },
+        {
+            "category": "RAID",
+            "pattern": "Checking for existing RAID configurations",
+            "message": "Scanning for RAID arrays on this device"
+        },
+        {
+            "category": "RAID",
+            "pattern": "Found hardware RAID configuration",
+            "message": "Detected hardware RAID array"
+        },
+        {
+            "category": "RAID",
+            "pattern": "Found Windows Storage Spaces mirror configuration",
+            "message": "Detected software RAID configuration"
+        },
+        {
+            "category": "RAID",
+            "pattern": "Storage Spaces cmdlets not available",
+            "message": "Software RAID detection unavailable in this environment"
+        },
+        {
+            "category": "RAID",
+            "pattern": "Preparing to create new mirror configuration",
+            "message": "Setting up disk mirroring for data protection"
+        },
+        {
+            "category": "RAID",
+            "pattern": "Found (\\d+) disks suitable for mirroring",
+            "message": "Found $1 disks that can be used for RAID"
+        },
+        {
+            "category": "RAID",
+            "pattern": "Created new mirror configuration using Storage Spaces",
+            "message": "Successfully created protective disk mirror"
+        },
+        {
+            "category": "RAID",
+            "pattern": "Error creating mirror:",
+            "message": "Unable to create disk mirror, using single disk"
+        },
+        {
+            "category": "RAID",
+            "pattern": "Not enough disks available for mirroring",
+            "message": "Not enough disks for mirroring, using single disk"
+        },
+        {
+            "category": "RAID",
+            "pattern": "No RAID configuration found, selecting primary disk",
+            "message": "Using standard disk configuration"
+        },
+        {
+            "category": "Disk",
+            "pattern": "Using disk (\\d+) \\((.+?)\\) for",
+            "message": "Selected disk for installation"
+        },
+        {
+            "category": "Disk",
+            "pattern": "Preparing disk (\\d+) for OS installation",
+            "message": "Preparing disk $1 for Windows installation"
+        },
+        {
+            "category": "Disk",
+            "pattern": "Preserving existing data",
+            "message": "Keeping existing data on disk"
+        },
+        {
+            "category": "Disk",
+            "pattern": "Disk cleared successfully",
+            "message": "Successfully prepared disk for installation"
+        },
+        {
+            "category": "Disk",
+            "pattern": "Disk cleared successfully \\(alternative method\\)",
+            "message": "Successfully prepared disk using alternative method"
+        },
+        {
+            "category": "Disk",
+            "pattern": "Failed to clear disk using both methods",
+            "message": "Disk preparation challenges - attempting to continue"
+        },
+        {
+            "category": "Disk",
+            "pattern": "Disk preparation complete",
+            "message": "Disk is ready for Windows installation"
+        },
+        {
+            "category": "Disk",
+            "pattern": "No suitable disk found for OS installation",
+            "message": "No compatible disk found - installation may fail"
+        },
+        {
+            "category": "Disk",
+            "pattern": "=== DISK DIAGNOSTICS ===",
+            "message": "Verifying disk configuration..."
+        },
+        {
+            "category": "Disk",
+            "pattern": "Listing all disks:",
+            "message": "Checking available storage devices"
+        },
+        {
+            "category": "Disk",
+            "pattern": "Listing all partitions:",
+            "message": "Verifying partition layout"
+        },
+        {
+            "category": "Disk",
+            "pattern": "Listing all volumes:",
+            "message": "Checking disk volumes"
+        },
+        {
+            "category": "Partition",
+            "pattern": "First assign a temporary drive letter",
+            "message": "Setting up Windows partition"
+        },
+        {
+            "category": "Partition",
+            "pattern": "Windows partition successfully assigned to C:",
+            "message": "Windows drive ready for installation"
+        },
+        {
+            "category": "Partition",
+            "pattern": "WARNING: Failed to assign C: to Windows partition",
+            "message": "Error preparing Windows drive - installation may fail"
+        },
+        {
+            "category": "Partition",
+            "pattern": "Using UEFI/GPT partitioning scheme",
+            "message": "Setting up modern partition layout (UEFI)"
+        },
+        {
+            "category": "Partition",
+            "pattern": "Using Legacy BIOS/MBR partitioning scheme",
+            "message": "Setting up legacy partition layout (BIOS)"
+        },
+        {
+            "category": "Partition",
+            "pattern": "Creating recovery partition",
+            "message": "Creating recovery partition for system repairs"
+        },
+        {
+            "category": "Installation",
+            "pattern": "Verifying Windows installation",
+            "message": "Checking that Windows files were installed correctly"
+        },
+        {
+            "category": "Installation",
+            "pattern": "Windows files found on C: drive",
+            "message": "Windows installation successful"
+        },
+        {
+            "category": "Installation",
+            "pattern": "ERROR: Windows files not found on C: drive",
+            "message": "Windows installation failed - checking for issues"
+        },
+        {
+            "category": "Installation",
+            "pattern": "Found Windows on drive",
+            "message": "Windows installed to incorrect drive - attempting to fix"
+        },
+        {
+            "category": "Installation",
+            "pattern": "No Windows installation found on any volume",
+            "message": "Installation failed - Windows not found"
+        },
+        {
+            "category": "System",
+            "pattern": "WARNING: Computer is currently running on Battery",
+            "message": "Device is on battery power. Installation may take longer."
+        },
+        {
+            "category": "System",
+            "pattern": "Enable powercfg High Performance",
+            "message": "Optimizing power settings for faster installation"
+        },
+        {
+            "category": "System",
+            "pattern": "High Performance will not be enabled while on battery",
+            "message": "Standard power settings used (battery mode)"
+        },
+        {
+            "category": "Disk",
+            "pattern": "WARNING: OSDisk will be cleaned automatically without confirmation",
+            "message": "Preparing to clean the disk automatically"
+        },
+        {
+            "category": "Disk",
+            "pattern": "Clear-Disk",
+            "message": "Cleaning the disk and removing all partitions"
+        },
+        {
+            "category": "Disk",
+            "pattern": "New-OSDisk",
+            "message": "Creating new disk partitions for Windows"
+        },
+        {
+            "category": "Validation",
+            "pattern": "Validate Operating System Source",
+            "message": "Checking Windows image source files"
+        },
+        {
+            "category": "Validation",
+            "pattern": "Validate WinPE",
+            "message": "Verifying Windows Preinstallation Environment"
+        },
+        {
+            "category": "Validation",
+            "pattern": "Validate Fixed Disks",
+            "message": "Scanning for available storage devices"
+        },
+        {
+            "category": "Download",
+            "pattern": "Download Operating System",
+            "message": "Downloading Windows image files - this may take several minutes"
+        },
+        {
+            "category": "Download",
+            "pattern": "OSDCloud Download Complete",
+            "message": "Windows image download complete"
+        },
+        {
+            "category": "Installation",
+            "pattern": "ApplyPath:\\s*'(?<path>[^']+)'",
+            "message": "Installing Windows to $($Matches.path)"
+        },
+        {
+            "category": "Installation",
+            "pattern": "Expand-WindowsImage",
+            "message": "Expanding Windows files to disk - this will take several minutes"
+        },
+        {
+            "category": "Installation",
+            "pattern": "Save-WindowsImage",
+            "message": "Finalizing Windows image installation"
+        },
+        {
+            "category": "Drivers",
+            "pattern": "Add Windows Driver with Offline Servicing",
+            "message": "Installing hardware drivers to Windows image"
+        },
+        {
+            "category": "Drivers",
+            "pattern": "Microsoft Update Catalog Firmware",
+            "message": "Downloading firmware updates from Microsoft"
+        },
+        {
+            "category": "Drivers",
+            "pattern": "Microsoft Update Catalog Drivers",
+            "message": "Downloading device-specific drivers"
+        },
+        {
+            "category": "Drivers",
+            "pattern": "Download Driver Pack",
+            "message": "Downloading driver package for your device model"
+        },
+        {
+            "category": "Drivers",
+            "pattern": "Save-DellDriverPack",
+            "message": "Installing Dell-specific drivers"
+        },
+        {
+            "category": "Drivers",
+            "pattern": "Save-HPDriverPack",
+            "message": "Installing HP-specific drivers"
+        },
+        {
+            "category": "Drivers",
+            "pattern": "Save-LenovoDriverPack",
+            "message": "Installing Lenovo-specific drivers"
+        },
+        {
+            "category": "Autopilot",
+            "pattern": "Checking Autopilot registration",
+            "message": "Verifying device enrollment status in Autopilot"
+        },
+        {
+            "category": "Autopilot",
+            "pattern": "Get-WindowsAutopilotInfo",
+            "message": "Collecting hardware information for Autopilot"
+        },
+        {
+            "category": "Autopilot",
+            "pattern": "Register-AutopilotDevice",
+            "message": "Registering device with Microsoft Autopilot service"
+        },
+        {
+            "category": "Autopilot",
+            "pattern": "GroupTag: (.+)",
+            "message": "Setting device group: $1"
+        },
+        {
+            "category": "Completion",
+            "pattern": "OSDCloud Finished",
+            "message": "Windows installation complete. Preparing to restart."
+        },
+        {
+            "category": "Error",
+            "pattern": "Error in OSDCloud process",
+            "message": "An error occurred during installation"
+        },
+        {
+            "category": "Error",
+            "pattern": "Error: (.*?)$",
+            "message": "Error: $1"
+        },
+        {
+            "category": "System",
+            "pattern": "Set-TimeZone",
+            "message": "Setting system time zone"
+        },
+        {
+            "category": "System",
+            "pattern": "Set-OSDxRegion",
+            "message": "Configuring regional settings"
+        },
+        {
+            "category": "System",
+            "pattern": "Enable-BitLockerFDV",
+            "message": "Setting up device encryption"
+        },
+        {
+            "category": "System",
+            "pattern": "Install-Module",
+            "message": "Installing required PowerShell modules"
+        },
+        {
+            "category": "Boot",
+            "pattern": "BFSVC: Unable to open file .+\\.mui for read",
+            "message": "Setting up boot files (ignoring optional language files)"
+        },
+        {
+            "category": "Boot",
+            "pattern": "BFSVC: BCD Error: Failed to (add|open) system store",
+            "message": "Creating boot configuration"
+        },
+        {
+            "category": "Boot",
+            "pattern": "BFSVC: System BCD store does not exist, creating",
+            "message": "Creating new boot configuration database"
+        },
+        {
+            "category": "Boot",
+            "pattern": "Boot files successfully created",
+            "message": "Boot configuration completed successfully"
+        }
+    ]
+} 
