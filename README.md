@@ -126,10 +126,22 @@ TCGCloud_2.1.1/
 ├── Build-BootMedia.ps1                # Build boot.wim from ADK with embedded scripts
 ├── Setup-OSDCloudUSB.ps1              # USB creation orchestrator (traditional flow)
 ├── deploy-config.json                 # Central config: GitHub URLs, OS defaults
+├── OSDCLOUD_REPLACEMENT_PLAN.md       # Migration plan for replacing OSDCloud dependencies
 ├── .github/workflows/
 │   └── build-release.yml              # CI: package scripts & create GitHub Releases
 ├── Scripts/
 │   ├── init.ps1                       # OS version selection dialog (WinPE entry point)
+│   ├── Modules/
+│   │   └── TCGCloud/                  # Custom module replacing OSDCloud functions
+│   │       ├── TCGCloud.psd1          # Module manifest (v2.1.1)
+│   │       ├── TCGCloud.psm1          # Root module — dot-sources Public/ and Private/
+│   │       ├── Public/
+│   │       │   ├── Get-TCGTemplate.ps1    # Replaces Get-OSDCloudTemplate
+│   │       │   └── Connect-TCGWiFi.ps1    # Replaces Start-WinREWiFi
+│   │       └── Private/
+│   │           └── Write-TCGStatus.ps1    # Shared status output helper
+│   ├── Shared/
+│   │   └── Copy-OfficeSources.ps1     # Shared Office staging logic (used by SetupComplete & OOBE)
 │   ├── StartNet/                      # WinPE runtime scripts
 │   │   ├── _init.ps1                  # Boot mode detection, network setup, language
 │   │   ├── Show-OSDCloudOverlay.ps1   # Main WPF UI & deployment orchestration
@@ -139,10 +151,10 @@ TCGCloud_2.1.1/
 │   │   ├── Invoke-DiskFunctions.ps1   # RAID detection & disk partitioning
 │   │   ├── Invoke-ImportAutopilot.ps1 # Hardware hash generation & Autopilot import
 │   │   ├── Utils.ps1                  # Graph API token & Autopilot helper functions
-│   │   ├── Logging.psm1              # Standardized logging framework
+│   │   ├── Logging.psm1              # Compatibility wrapper → delegates to TCGLogging
 │   │   └── thomas-logo.png           # UI branding logo
 │   ├── Custom/                        # Embedded tools & configuration
-│   │   ├── TCGLogging.ps1 / .psm1    # Custom logging functions & module
+│   │   ├── TCGLogging.ps1 / .psm1    # Canonical logging functions & module
 │   │   ├── TCGUtility.ps1 / .psm1    # Microsoft Graph API integration module
 │   │   ├── OA3.cfg                    # OA3 tool hardware hash config
 │   │   ├── oa3tool.exe                # Microsoft hardware hash generator
@@ -151,13 +163,16 @@ TCGCloud_2.1.1/
 │   │   ├── wallpaper.jpg              # Custom WinPE wallpaper
 │   │   └── OOBE/                      # Out-of-Box Experience scripts
 │   │       ├── OOBEDeploy.ps1         # Windows Update & Store app install
-│   │       ├── Copy-OfficeSources.ps1 # Office deployment file staging
+│   │       ├── Copy-OfficeSources.ps1 # Delegates to Shared/Copy-OfficeSources.ps1
 │   │       └── oobe.cmd               # OOBE entry point
 │   └── SetupComplete/                 # First-boot scripts
 │       ├── SetupComplete.ps1          # Windows Updates & driver install
 │       ├── SetupComplete.cmd          # Entry point batch file
-│       ├── Copy-OfficeSources.ps1     # Office sources staging
+│       ├── Copy-OfficeSources.ps1     # Delegates to Shared/Copy-OfficeSources.ps1
 │       └── Remove-OSDCloudFolders.ps1 # Cleanup temporary files
+├── Tests/
+│   ├── TCGCloud.Module.Tests.ps1      # Pester tests for TCGCloud module
+│   └── Security.Tests.ps1            # Pester tests for secret leakage
 └── README.md
 ```
 
@@ -294,13 +309,13 @@ See [OSDCLOUD_REPLACEMENT_PLAN.md](OSDCLOUD_REPLACEMENT_PLAN.md) for the full mi
 ## Improvement Opportunities
 
 ### Security
-- **Client secret in source code** — `TCGUtility.psm1` contains hardcoded Azure AD client secret; should use certificate-based authentication or Azure Key Vault
+- ~~**Client secret in source code**~~ ✅ Resolved — credentials now read from environment variables (`TCG_TENANT_ID`, `TCG_CLIENT_ID`, `TCG_CLIENT_SECRET`)
 - **Input validation** — Autopilot registration form fields lack sanitization
 
 ### Code Quality
-- **Duplicate logging modules** — `TCGLogging.psm1` and `Logging.psm1` serve similar purposes; consolidate into one
+- ~~**Duplicate logging modules**~~ ✅ Resolved — `Logging.psm1` is now a thin compatibility wrapper that delegates to `TCGLogging.psm1`
 - **Duplicate code blocks** — `Show-OSDCloudOverlay.ps1` has two near-identical deployment blocks (registered vs unregistered paths); refactor into a shared function
-- **Duplicate `Copy-OfficeSources.ps1`** — exists in both `SetupComplete/` and `OOBE/` with minor differences
+- ~~**Duplicate `Copy-OfficeSources.ps1`**~~ ✅ Resolved — shared implementation in `Scripts/Shared/Copy-OfficeSources.ps1`; both SetupComplete and OOBE entry points delegate to it
 - **Large monolithic scripts** — `Setup-OSDCloudUSB.ps1` (2,170 lines) and `Show-OSDCloudOverlay.ps1` (1,000+ lines) could be modularized
 
 ### Reliability
@@ -308,7 +323,7 @@ See [OSDCLOUD_REPLACEMENT_PLAN.md](OSDCLOUD_REPLACEMENT_PLAN.md) for the full mi
 - **Disk function edge cases** — RAID detection relies on friendly name matching (`PERC`, `MegaRAID`, `LSI`); may miss newer controllers
 
 ### Maintainability
-- **No tests** — Add Pester tests for critical functions (Graph API, disk detection, pattern matching)
+- ~~**No tests**~~ ✅ Resolved — Pester test scaffolding added in `Tests/` for TCGCloud module and security checks
 - **Version tracking** — No version metadata beyond the repo name
 
 ## License

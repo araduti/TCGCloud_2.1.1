@@ -2,11 +2,17 @@
 
 function Get-GraphToken {
     param(
-        [string]$TenantId = "27288bd1-5edf-4fd9-b1c9-49e2ab191c9c",
-        [string]$ClientId = "fd553d63-358d-4ad1-bffc-ae93d4173d1e",
-        [string]$ClientSecret = "kPe8Q~3td4OfgOM6kEi70orSdpjJB60IMIi~paVD "
+        [string]$TenantId = $env:TCG_TENANT_ID,
+        [string]$ClientId = $env:TCG_CLIENT_ID,
+        [string]$ClientSecret = $env:TCG_CLIENT_SECRET
     )
     
+    # Validate required credentials
+    if (-not $TenantId -or -not $ClientId -or -not $ClientSecret) {
+        Write-Error "Graph API credentials not configured. Set TCG_TENANT_ID, TCG_CLIENT_ID, and TCG_CLIENT_SECRET environment variables."
+        return $null
+    }
+
     try {
         Write-Host "Attempting to get Graph API token..."
         [System.Net.ServicePointManager]::DnsRefreshTimeout = 0
