@@ -25,6 +25,9 @@ Describe 'TCGCloud Module' {
             $exported | Should -Contain 'Connect-TCGWiFi'
             $exported | Should -Contain 'New-TCGTemplate'
             $exported | Should -Contain 'New-TCGWorkspace'
+            $exported | Should -Contain 'New-TCGUSB'
+            $exported | Should -Contain 'Edit-TCGWinPE'
+            $exported | Should -Contain 'Update-TCGUSB'
         }
 
         It 'Has version 2.1.1' {
@@ -86,6 +89,84 @@ Describe 'TCGCloud Module' {
             # In a CI/test environment without a WiFi adapter this should return $false
             $result = Connect-TCGWiFi -ErrorAction SilentlyContinue
             $result | Should -BeOfType [bool]
+        }
+    }
+
+    Context 'New-TCGUSB' {
+        It 'Requires WorkspacePath parameter' {
+            $cmd = Get-Command New-TCGUSB
+            $param = $cmd.Parameters['WorkspacePath']
+            $param.Attributes | Where-Object { $_ -is [System.Management.Automation.ParameterAttribute] } |
+                ForEach-Object { $_.Mandatory | Should -BeTrue }
+        }
+
+        It 'Returns failure for non-existent workspace' {
+            $result = New-TCGUSB -WorkspacePath '/nonexistent/workspace' -ErrorAction SilentlyContinue
+            $result.Success | Should -BeFalse
+        }
+
+        It 'Returns failure when workspace has no Media directory' {
+            $testDir = Join-Path ([System.IO.Path]::GetTempPath()) "TCGUSBTest-$(Get-Random)"
+            try {
+                New-Item -Path $testDir -ItemType Directory -Force | Out-Null
+                $result = New-TCGUSB -WorkspacePath $testDir -ErrorAction SilentlyContinue
+                $result.Success | Should -BeFalse
+            }
+            finally {
+                if (Test-Path $testDir) { Remove-Item $testDir -Recurse -Force }
+            }
+        }
+
+        It 'Has DiskNumber and Force parameters' {
+            $cmd = Get-Command New-TCGUSB
+            $cmd.Parameters.ContainsKey('DiskNumber') | Should -BeTrue
+            $cmd.Parameters.ContainsKey('Force') | Should -BeTrue
+        }
+    }
+
+    Context 'Edit-TCGWinPE' {
+        It 'Requires BootWimPath parameter' {
+            $cmd = Get-Command Edit-TCGWinPE
+            $param = $cmd.Parameters['BootWimPath']
+            $param.Attributes | Where-Object { $_ -is [System.Management.Automation.ParameterAttribute] } |
+                ForEach-Object { $_.Mandatory | Should -BeTrue }
+        }
+
+        It 'Returns $false for non-existent boot.wim' {
+            $result = Edit-TCGWinPE -BootWimPath '/nonexistent/boot.wim' -ErrorAction SilentlyContinue
+            $result | Should -BeFalse
+        }
+
+        It 'Has expected parameters for drivers, WiFi, wallpaper, and USB update' {
+            $cmd = Get-Command Edit-TCGWinPE
+            $cmd.Parameters.ContainsKey('Wallpaper') | Should -BeTrue
+            $cmd.Parameters.ContainsKey('DriverPaths') | Should -BeTrue
+            $cmd.Parameters.ContainsKey('WirelessConnect') | Should -BeTrue
+            $cmd.Parameters.ContainsKey('UpdateUSB') | Should -BeTrue
+            $cmd.Parameters.ContainsKey('CloudDriver') | Should -BeTrue
+        }
+    }
+
+    Context 'Update-TCGUSB' {
+        It 'Returns failure when no USB volume and no image found' {
+            # In CI there are no removable volumes or mounted ISOs
+            $result = Update-TCGUSB -ErrorAction SilentlyContinue
+            $result.Success | Should -BeFalse
+        }
+
+        It 'Returns failure for non-existent explicit image path' {
+            $result = Update-TCGUSB -ImagePath '/nonexistent/install.wim' -USBPath '/tmp' -ErrorAction SilentlyContinue
+            $result.Success | Should -BeFalse
+        }
+
+        It 'Has OSName and OSActivation parameters with correct defaults' {
+            $cmd = Get-Command Update-TCGUSB
+            $cmd.Parameters.ContainsKey('OSName') | Should -BeTrue
+            $cmd.Parameters.ContainsKey('OSActivation') | Should -BeTrue
+            # OSActivation should have ValidateSet
+            $validateSet = $cmd.Parameters['OSActivation'].Attributes |
+                Where-Object { $_ -is [System.Management.Automation.ValidateSetAttribute] }
+            $validateSet | Should -Not -BeNullOrEmpty
         }
     }
 }

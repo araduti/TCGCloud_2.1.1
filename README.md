@@ -139,9 +139,15 @@ TCGCloud_2.1.1/
 │   │       │   ├── Get-TCGTemplate.ps1    # Replaces Get-OSDCloudTemplate
 │   │       │   ├── New-TCGTemplate.ps1    # Replaces New-OSDCloudTemplate (Phase 2)
 │   │       │   ├── New-TCGWorkspace.ps1   # Replaces New-OSDCloudWorkspace (Phase 2)
-│   │       │   └── Connect-TCGWiFi.ps1    # Replaces Start-WinREWiFi
+│   │       │   ├── Connect-TCGWiFi.ps1    # Replaces Start-WinREWiFi
+│   │       │   ├── New-TCGUSB.ps1         # Replaces New-OSDCloudUSB (Phase 3)
+│   │       │   ├── Edit-TCGWinPE.ps1      # Replaces Edit-OSDCloudWinPE (Phase 3)
+│   │       │   └── Update-TCGUSB.ps1      # Replaces Update-OSDCloudUSB (Phase 3)
 │   │       └── Private/
-│   │           └── Write-TCGStatus.ps1    # Shared status output helper
+│   │           ├── Write-TCGStatus.ps1    # Shared status output helper
+│   │           ├── Mount-WimImage.ps1     # DISM mount/unmount helper (Phase 3)
+│   │           ├── Invoke-DismOperation.ps1 # DISM servicing command wrapper (Phase 3)
+│   │           └── Get-WinPEOCPath.ps1    # WinPE optional component path resolver (Phase 3)
 │   ├── Shared/
 │   │   └── Copy-OfficeSources.ps1     # Shared Office staging logic (used by SetupComplete & OOBE)
 │   ├── StartNet/                      # WinPE runtime scripts
@@ -174,7 +180,8 @@ TCGCloud_2.1.1/
 │       ├── Copy-OfficeSources.ps1     # Delegates to Shared/Copy-OfficeSources.ps1
 │       └── Remove-OSDCloudFolders.ps1 # Cleanup temporary files
 ├── Tests/
-│   ├── TCGCloud.Module.Tests.ps1      # Pester tests for TCGCloud module
+│   ├── TCGCloud.Module.Tests.ps1      # Pester tests for TCGCloud module (Phases 1-3)
+│   ├── InputValidation.Tests.ps1      # Pester tests for input validation
 │   └── Security.Tests.ps1            # Pester tests for secret leakage
 └── README.md
 ```
@@ -295,17 +302,17 @@ $Global:MyOSDCloud = @{
 
 This project currently depends on the [OSDCloud](https://www.osdcloud.com/) PowerShell module for several core functions. The network deployment path reduces this dependency — `_init.ps1` now gracefully handles the absence of the OSD module by falling back to native networking.
 
-| OSDCloud Function | Where Used | Purpose | Network Mode |
+| OSDCloud Function | Where Used | Purpose | TCGCloud Replacement |
 |---|---|---|---|
-| `New-OSDCloudTemplate` | Setup-OSDCloudUSB.ps1 | Creates WinPE template with drivers | Not needed |
-| `Get-OSDCloudTemplate` | Setup-OSDCloudUSB.ps1 | Checks for existing template | Not needed |
-| `New-OSDCloudWorkspace` | Setup-OSDCloudUSB.ps1 | Creates deployment workspace structure | Not needed |
-| `New-OSDCloudUSB` | Setup-OSDCloudUSB.ps1 | Formats USB and copies boot media | Not needed |
-| `Edit-OSDCloudWinPE` | Setup-OSDCloudUSB.ps1 | Customizes WinPE (wallpaper, drivers, WiFi) | Not needed |
-| `Update-OSDCloudUSB` | Setup-OSDCloudUSB.ps1 | Adds OS installation files to USB | Not needed |
+| `New-OSDCloudTemplate` | Setup-OSDCloudUSB.ps1 | Creates WinPE template with drivers | ✅ `New-TCGTemplate` (Phase 2) |
+| `Get-OSDCloudTemplate` | Setup-OSDCloudUSB.ps1 | Checks for existing template | ✅ `Get-TCGTemplate` (Phase 1) |
+| `New-OSDCloudWorkspace` | Setup-OSDCloudUSB.ps1 | Creates deployment workspace structure | ✅ `New-TCGWorkspace` (Phase 2) |
+| `New-OSDCloudUSB` | Setup-OSDCloudUSB.ps1 | Formats USB and copies boot media | ✅ `New-TCGUSB` (Phase 3) |
+| `Edit-OSDCloudWinPE` | Setup-OSDCloudUSB.ps1 | Customizes WinPE (wallpaper, drivers, WiFi) | ✅ `Edit-TCGWinPE` (Phase 3) |
+| `Update-OSDCloudUSB` | Setup-OSDCloudUSB.ps1 | Adds OS installation files to USB | ✅ `Update-TCGUSB` (Phase 3) |
 | `Import-Module OSD` | _init.ps1, Show-OSDCloudOverlay.ps1 | Core OSD helper functions in WinPE | Optional (graceful fallback) |
-| `Start-OSDCloud` | Show-OSDCloudOverlay.ps1 | Executes Windows image deployment | Still required |
-| `Start-WinREWiFi` | _init.ps1 | WiFi connection in WinPE | Replaced by netsh fallback |
+| `Start-OSDCloud` | Invoke-OSDCloudDeployment.ps1 | Executes Windows image deployment | Phase 4 (planned) |
+| `Start-WinREWiFi` | _init.ps1 | WiFi connection in WinPE | ✅ `Connect-TCGWiFi` (Phase 1) |
 
 See [OSDCLOUD_REPLACEMENT_PLAN.md](OSDCLOUD_REPLACEMENT_PLAN.md) for the full migration strategy.
 
