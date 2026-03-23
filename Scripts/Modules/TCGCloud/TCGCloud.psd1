@@ -12,6 +12,9 @@
         'New-TCGTemplate'
         'New-TCGWorkspace'
         'Connect-TCGWiFi'
+        'New-TCGUSB'
+        'Edit-TCGWinPE'
+        'Update-TCGUSB'
     )
     PrivateData       = @{
         PSData = @{
