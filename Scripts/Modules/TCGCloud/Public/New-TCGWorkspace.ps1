@@ -54,6 +54,9 @@ function New-TCGWorkspace {
         Write-TCGStatus "Copying template files from: $templatePath" -Type Info
 
         # Use robocopy when available (Windows), fall back to Copy-Item
+        # /E  = copy subdirectories including empty ones
+        # /NFL = no file listing, /NDL = no directory listing
+        # /NJH = no job header, /NJS = no job summary
         $robocopy = Get-Command robocopy -ErrorAction SilentlyContinue
         if ($robocopy) {
             $roboArgs = @($sourceMedia, $destMedia, '/E', '/NFL', '/NDL', '/NJH', '/NJS')

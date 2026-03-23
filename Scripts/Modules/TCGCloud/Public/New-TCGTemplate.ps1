@@ -62,9 +62,12 @@ function New-TCGTemplate {
         return $null
     }
 
-    # --- Build template directory ------------------------------------------------
+    # --- Build template directory (Windows-only; ProgramData is always set) -----
     $programData  = $env:ProgramData
-    if (-not $programData) { $programData = '/tmp' }
+    if (-not $programData) {
+        Write-TCGStatus 'ProgramData environment variable not set. This function requires Windows.' -Type Error
+        return $null
+    }
     $templatePath = Join-Path $programData "TCGCloud\Templates\$Name"
 
     try {
