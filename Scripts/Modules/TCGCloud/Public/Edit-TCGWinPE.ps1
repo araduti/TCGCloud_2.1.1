@@ -89,8 +89,10 @@ function Edit-TCGWinPE {
                     'WinPE-PowerShell.cab'
                     'WinPE-DismCmdlets.cab'
                     'WinPE-Dot3Svc.cab'
+                    'WinPE-WiFi-Package.cab'
                     'WinPE-StorageWMI.cab'
                     'WinPE-SecureBootCmdlets.cab'
+                    'WinPE-HTA.cab'
                 )
 
                 foreach ($pkg in $wifiPackages) {

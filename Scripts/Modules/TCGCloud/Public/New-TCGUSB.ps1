@@ -135,8 +135,8 @@ assign
     $partitions = Get-Partition -DiskNumber $DiskNumber -ErrorAction SilentlyContinue |
         Where-Object { $_.DriveLetter }
 
-    $bootPartition = $partitions | Where-Object { $_.Type -eq 'System' -or $_.Size -lt 1GB } | Select-Object -First 1
-    $dataPartition = $partitions | Where-Object { $_.Type -ne 'System' -and $_.Size -ge 1GB } | Select-Object -First 1
+    $bootPartition = $partitions | Where-Object { $_.Type -eq 'System' -or $_.Size -le 600MB } | Select-Object -First 1
+    $dataPartition = $partitions | Where-Object { $_.Type -ne 'System' -and $_.Size -gt 600MB } | Select-Object -First 1
 
     if (-not $dataPartition -or -not $dataPartition.DriveLetter) {
         Write-TCGStatus 'Could not determine data partition drive letter.' -Type Error

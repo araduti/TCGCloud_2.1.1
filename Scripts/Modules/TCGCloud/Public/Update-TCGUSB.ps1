@@ -153,7 +153,7 @@ function Update-TCGUSB {
         for ($i = 0; $i -lt $indexes.Count; $i++) {
             $idxVal  = $indexes[$i].Groups[1].Value
             $nameVal = if ($i -lt $names.Count) { $names[$i].Groups[1].Value.Trim() } else { '' }
-            if ($nameVal -match [regex]::Escape($OSName) -or $nameVal -match 'Enterprise') {
+            if ($nameVal -match [regex]::Escape($OSName)) {
                 $imageIndex = [int]$idxVal
                 Write-TCGStatus "Matched image index $imageIndex : $nameVal" -Type Info
                 break
