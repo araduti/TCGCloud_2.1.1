@@ -15,15 +15,22 @@ function Get-GraphToken {
         [string]$LogFile,
         
         [Parameter(Mandatory = $false)]
-        [string]$tenantId = "27288bd1-5edf-4fd9-b1c9-49e2ab191c9c",
+        [string]$tenantId = $env:TCG_TENANT_ID,
         
         [Parameter(Mandatory = $false)]
-        [string]$clientId = "fd553d63-358d-4ad1-bffc-ae93d4173d1e",
+        [string]$clientId = $env:TCG_CLIENT_ID,
         
         [Parameter(Mandatory = $false)]
-        [string]$clientSecret = "kPe8Q~3td4OfgOM6kEi70orSdpjJB60IMIi~paVD "
+        [string]$clientSecret = $env:TCG_CLIENT_SECRET
     )
     
+    # Validate required credentials
+    if (-not $tenantId -or -not $clientId -or -not $clientSecret) {
+        $msg = "Graph API credentials not configured. Set TCG_TENANT_ID, TCG_CLIENT_ID, and TCG_CLIENT_SECRET environment variables."
+        Write-Error $msg
+        return $null
+    }
+
     # Create a log file if one wasn't provided
     if (-not $LogFile) {
         $LogFile = "X:\OSDCloud\Logs\TCGUtility.log"

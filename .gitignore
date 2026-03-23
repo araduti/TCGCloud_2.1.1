@@ -1,0 +1,28 @@
+# Build outputs
+Output/
+*.zip
+*.iso
+
+# Windows ADK mount residue
+Mount/
+
+# Logs
+*.log
+
+# OS images (too large for git)
+*.wim
+*.esd
+*.sdi
+
+# Editor and IDE files
+.vscode/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+Desktop.ini
