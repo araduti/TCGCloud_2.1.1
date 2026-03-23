@@ -13,6 +13,17 @@ function Get-GraphToken {
         return $null
     }
 
+    # Validate GUID format for TenantId and ClientId
+    $guidPattern = '^[0-9a-fA-F]{8}-([0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}$'
+    if ($TenantId -notmatch $guidPattern) {
+        Write-Error "TCG_TENANT_ID is not a valid GUID format."
+        return $null
+    }
+    if ($ClientId -notmatch $guidPattern) {
+        Write-Error "TCG_CLIENT_ID is not a valid GUID format."
+        return $null
+    }
+
     try {
         Write-Host "Attempting to get Graph API token..."
         [System.Net.ServicePointManager]::DnsRefreshTimeout = 0
@@ -59,6 +70,16 @@ function Test-AutopilotStatus {
         [string]$Token
     )
     
+    # Validate inputs
+    if (-not $SerialNumber -or $SerialNumber.Trim() -eq '') {
+        Write-Error "SerialNumber is required and cannot be empty."
+        return @{
+            Success      = $false
+            IsRegistered = $false
+            Message      = "SerialNumber is required"
+        }
+    }
+
     try {
         $GraphAddresses = [System.Net.Dns]::GetHostAddresses("graph.microsoft.com") | 
         Where-Object { $_.AddressFamily -eq 'InterNetwork' } | 
@@ -139,6 +160,17 @@ function Test-UserExists {
         [string]$Token
     )
     
+    # Validate email format
+    if (-not $UserEmail -or $UserEmail -notmatch '^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$') {
+        Write-Error "Invalid or missing email address: $UserEmail"
+        return @{
+            Success           = $false
+            Exists            = $false
+            UserPrincipalName = $null
+            DisplayName       = $null
+        }
+    }
+
     try {
         $GraphAddresses = [System.Net.Dns]::GetHostAddresses("graph.microsoft.com") | 
         Where-Object { $_.AddressFamily -eq 'InterNetwork' } | 

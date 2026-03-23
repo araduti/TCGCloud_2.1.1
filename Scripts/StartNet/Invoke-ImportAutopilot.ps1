@@ -10,6 +10,18 @@ function Import-AutopilotDevice {
         [string]$UserEmail
     )
 
+    # Validate GroupTag — alphanumeric, hyphens, underscores only; max 100 characters
+    if ($GroupTag -notmatch '^[a-zA-Z0-9\-_]{1,100}$') {
+        Write-Error "GroupTag must be 1-100 characters and contain only letters, digits, hyphens, or underscores."
+        return @{ Success = $false; Message = "Invalid GroupTag format" }
+    }
+
+    # Validate UserEmail format if provided
+    if ($UserEmail -and $UserEmail -notmatch '^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$') {
+        Write-Error "Invalid email address format: $UserEmail"
+        return @{ Success = $false; Message = "Invalid email address format" }
+    }
+
     try {
         $CustomFolder = "X:\OSDCloud\Config\Scripts\Custom"
         Write-Host "Status: Using Custom folder path: $CustomFolder"
@@ -44,12 +56,21 @@ function Import-AutopilotDevice {
 
         Write-Host "Status: Reading hardware hash..."
         [xml]$XmlHash = Get-Content -Path "OA3.xml" -Raw
-        $Hash = $XmlHash.SelectSingleNode("//HardwareHash").InnerText
+        $hashNode = $XmlHash.SelectSingleNode("//HardwareHash")
+        if (-not $hashNode -or -not $hashNode.InnerText) {
+            Write-Host "Status: Hardware hash node not found or empty in OA3.xml"
+            return @{ Success = $false; Message = "Hardware hash not found in OA3.xml" }
+        }
+        $Hash = $hashNode.InnerText
         Write-Host "Status: Successfully extracted hardware hash"
         Remove-Item "OA3.xml" -Force
 
         Write-Host "Status: Getting device serial number..."
         $SerialNumber = (Get-WmiObject -Class Win32_BIOS).SerialNumber
+        if (-not $SerialNumber -or $SerialNumber.Trim() -eq '') {
+            Write-Host "Status: Failed to retrieve device serial number"
+            return @{ Success = $false; Message = "Device serial number is empty or unavailable" }
+        }
         Write-Host "Status: Device serial number: $SerialNumber"
 
         Write-Host "Status: Preparing device registration data..."

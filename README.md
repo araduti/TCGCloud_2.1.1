@@ -137,6 +137,8 @@ TCGCloud_2.1.1/
 │   │       ├── TCGCloud.psm1          # Root module — dot-sources Public/ and Private/
 │   │       ├── Public/
 │   │       │   ├── Get-TCGTemplate.ps1    # Replaces Get-OSDCloudTemplate
+│   │       │   ├── New-TCGTemplate.ps1    # Replaces New-OSDCloudTemplate (Phase 2)
+│   │       │   ├── New-TCGWorkspace.ps1   # Replaces New-OSDCloudWorkspace (Phase 2)
 │   │       │   └── Connect-TCGWiFi.ps1    # Replaces Start-WinREWiFi
 │   │       └── Private/
 │   │           └── Write-TCGStatus.ps1    # Shared status output helper
@@ -149,6 +151,7 @@ TCGCloud_2.1.1/
 │   │   ├── StatusPatterns.json        # Log-to-message pattern mapping (100+ patterns)
 │   │   ├── Invoke-Prereq.ps1         # Autopilot status check via Graph API
 │   │   ├── Invoke-DiskFunctions.ps1   # RAID detection & disk partitioning
+│   │   ├── Invoke-OSDCloudDeployment.ps1 # Shared OSDCloud deployment logic
 │   │   ├── Invoke-ImportAutopilot.ps1 # Hardware hash generation & Autopilot import
 │   │   ├── Utils.ps1                  # Graph API token & Autopilot helper functions
 │   │   ├── Logging.psm1              # Compatibility wrapper → delegates to TCGLogging
@@ -310,11 +313,11 @@ See [OSDCLOUD_REPLACEMENT_PLAN.md](OSDCLOUD_REPLACEMENT_PLAN.md) for the full mi
 
 ### Security
 - ~~**Client secret in source code**~~ ✅ Resolved — credentials now read from environment variables (`TCG_TENANT_ID`, `TCG_CLIENT_ID`, `TCG_CLIENT_SECRET`)
-- **Input validation** — Autopilot registration form fields lack sanitization
+- ~~**Input validation**~~ ✅ Resolved — GUID format validation on credentials, email format validation on user lookups, GroupTag and serial number sanitization in Autopilot registration
 
 ### Code Quality
 - ~~**Duplicate logging modules**~~ ✅ Resolved — `Logging.psm1` is now a thin compatibility wrapper that delegates to `TCGLogging.psm1`
-- **Duplicate code blocks** — `Show-OSDCloudOverlay.ps1` has two near-identical deployment blocks (registered vs unregistered paths); refactor into a shared function
+- ~~**Duplicate code blocks**~~ ✅ Resolved — deployment logic extracted to `Scripts/StartNet/Invoke-OSDCloudDeployment.ps1`; both registered and unregistered paths in `Show-OSDCloudOverlay.ps1` load the shared script
 - ~~**Duplicate `Copy-OfficeSources.ps1`**~~ ✅ Resolved — shared implementation in `Scripts/Shared/Copy-OfficeSources.ps1`; both SetupComplete and OOBE entry points delegate to it
 - **Large monolithic scripts** — `Setup-OSDCloudUSB.ps1` (2,170 lines) and `Show-OSDCloudOverlay.ps1` (1,000+ lines) could be modularized
 
