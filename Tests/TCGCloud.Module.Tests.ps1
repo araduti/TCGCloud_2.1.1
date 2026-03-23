@@ -23,6 +23,8 @@ Describe 'TCGCloud Module' {
             $exported = (Get-Module TCGCloud).ExportedFunctions.Keys
             $exported | Should -Contain 'Get-TCGTemplate'
             $exported | Should -Contain 'Connect-TCGWiFi'
+            $exported | Should -Contain 'New-TCGTemplate'
+            $exported | Should -Contain 'New-TCGWorkspace'
         }
 
         It 'Has version 2.1.1' {
@@ -39,6 +41,43 @@ Describe 'TCGCloud Module' {
 
         It 'Accepts a custom Name parameter' {
             { Get-TCGTemplate -Name 'CustomName' } | Should -Not -Throw
+        }
+    }
+
+    Context 'New-TCGTemplate' {
+        It 'Returns $null when ADK is not installed' {
+            # In CI there is no Windows ADK, so this should return $null gracefully
+            $result = New-TCGTemplate -Name 'TestTemplate' -ErrorAction SilentlyContinue
+            $result | Should -BeNullOrEmpty
+        }
+
+        It 'Accepts a custom ADKPath parameter' {
+            { New-TCGTemplate -ADKPath '/nonexistent/path' -ErrorAction SilentlyContinue } | Should -Not -Throw
+        }
+    }
+
+    Context 'New-TCGWorkspace' {
+        It 'Creates workspace directory structure' {
+            $testDir = Join-Path ([System.IO.Path]::GetTempPath()) "TCGWorkspaceTest-$(Get-Random)"
+            try {
+                $result = New-TCGWorkspace -WorkspacePath $testDir
+                $result | Should -Be $testDir
+                # Verify key directories were created
+                Test-Path (Join-Path $testDir 'Media')           | Should -BeTrue
+                Test-Path (Join-Path $testDir 'Media\OSDCloud')  | Should -BeTrue
+                Test-Path (Join-Path $testDir 'Media\sources')   | Should -BeTrue
+                Test-Path (Join-Path $testDir 'Media\EFI\Boot')  | Should -BeTrue
+            }
+            finally {
+                if (Test-Path $testDir) { Remove-Item $testDir -Recurse -Force }
+            }
+        }
+
+        It 'Requires WorkspacePath parameter' {
+            $cmd = Get-Command New-TCGWorkspace
+            $param = $cmd.Parameters['WorkspacePath']
+            $param.Attributes | Where-Object { $_ -is [System.Management.Automation.ParameterAttribute] } |
+                ForEach-Object { $_.Mandatory | Should -BeTrue }
         }
     }
 

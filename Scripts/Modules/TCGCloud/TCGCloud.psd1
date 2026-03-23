@@ -9,6 +9,8 @@
     PowerShellVersion = '5.1'
     FunctionsToExport = @(
         'Get-TCGTemplate'
+        'New-TCGTemplate'
+        'New-TCGWorkspace'
         'Connect-TCGWiFi'
     )
     PrivateData       = @{
