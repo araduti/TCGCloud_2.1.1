@@ -1,15 +1,29 @@
-# Detect boot mode: USB (OSD module available) or Network (RAM-disk boot)
+# Detect boot mode: USB (TCGCloud module available) or Network (RAM-disk boot)
 $script:BootMode = "USB"
 $script:ScriptsRoot = $PSScriptRoot  # Default: scripts alongside this file
 
-# Try to import OSD module (available in USB boot via OSDCloud)
-Write-Host "Status: Importing OSD Module" -ForegroundColor Cyan
-try {
-    Import-Module OSD -ErrorAction Stop
-    Write-Host "Status: OSD Module loaded (USB boot mode)" -ForegroundColor Green
+# Try to import TCGCloud module (embedded in WinPE by Edit-TCGWinPE / Edit-OSDCloudWinPE)
+Write-Host "Status: Importing TCGCloud Module" -ForegroundColor Cyan
+$tcgModulePaths = @(
+    'X:\OSDCloud\Config\Scripts\Modules\TCGCloud\TCGCloud.psd1',
+    (Join-Path $PSScriptRoot '..\Modules\TCGCloud\TCGCloud.psd1')
+)
+$tcgModuleLoaded = $false
+foreach ($tcgPath in $tcgModulePaths) {
+    if (Test-Path $tcgPath) {
+        try {
+            Import-Module $tcgPath -Force -ErrorAction Stop
+            Write-Host "Status: TCGCloud Module loaded (USB boot mode)" -ForegroundColor Green
+            $tcgModuleLoaded = $true
+            break
+        }
+        catch {
+            Write-Host "Status: Failed to load TCGCloud module from $tcgPath — $_" -ForegroundColor Yellow
+        }
+    }
 }
-catch {
-    Write-Host "Status: OSD Module not available — using network boot mode" -ForegroundColor Yellow
+if (-not $tcgModuleLoaded) {
+    Write-Host "Status: TCGCloud Module not available — using network boot mode" -ForegroundColor Yellow
     $script:BootMode = "Network"
 }
 
@@ -112,7 +126,10 @@ if (-not (Test-Path $overlayCheck)) {
 Write-Host "Status: Starting WiFi connection" -ForegroundColor Cyan
 if ($script:BootMode -eq "USB") {
     try {
-        Start-WinREWiFi -WirelessConnect -ErrorAction Stop
+        $wifiResult = Connect-TCGWiFi -ErrorAction Stop
+        if (-not $wifiResult) {
+            Write-Host "Warning: WiFi connection returned false — may be wired or no profiles available" -ForegroundColor Yellow
+        }
     }
     catch {
         Write-Host "Error: Failed to start WiFi connection" -ForegroundColor Red

@@ -505,7 +505,33 @@ enables a side-by-side rollback path during the final validation phase.
 | **Phase 3** | USB media creation & WinPE customization | ~18 hours | Medium-High | Phase 2 | ✅ Complete |
 | **Phase 4** | Core deployment engine replacement | ~18 hours | High | Phase 3 | ✅ Complete |
 | **Phase 5** | Testing & validation | ~8 hours | — | Phase 4 | ✅ Complete |
-| **Total** | | **~55 hours** | | | |
+| **Phase 6** | Caller-site cutover (Setup-OSDCloudUSB.ps1 + _init.ps1) | ~2 hours | Low | Phase 5 | ✅ Complete |
+| **Total** | | **~57 hours** | | | |
+
+## Phase 6: Caller-Site Cutover ✅ Complete
+
+Updated `Setup-OSDCloudUSB.ps1` and `Scripts/StartNet/_init.ps1` to call the native
+TCGCloud module functions instead of OSDCloud/OSD module equivalents.
+
+### `Setup-OSDCloudUSB.ps1` changes
+
+| Was | Now |
+|---|---|
+| `Install-Module OSDCloud / OSD` | `Import-Module Scripts\Modules\TCGCloud\TCGCloud.psd1` |
+| `Import-Module OSDCloud` | (module already loaded in Install-Prerequisites) |
+| `Get-OSDCloudTemplate` | `Get-TCGTemplate` |
+| `New-OSDCloudTemplate -Name TCGCloud -WinRE` | `New-TCGTemplate -Name TCGCloud` |
+| `New-OSDCloudWorkspace -WorkspacePath …` | `New-TCGWorkspace -WorkspacePath … -TemplateName TCGCloud` |
+| `New-OSDCloudUSB -WorkspacePath …` | `New-TCGUSB -WorkspacePath … -DiskNumber … -Force` |
+| `Edit-OSDCloudWinPE -Wallpaper … -CloudDriver * … -WirelessConnect -UpdateUSB` | `Edit-TCGWinPE -BootWimPath … -Wallpaper … -CloudDriver * -DriverPaths … -WirelessConnect -UpdateUSB …` |
+| `Update-OSDCloudUSB -OSName … -OSActivation Volume` | `Update-TCGUSB -OSName … -OSActivation Volume -USBPath …` |
+
+### `Scripts/StartNet/_init.ps1` changes
+
+| Was | Now |
+|---|---|
+| `Import-Module OSD` | `Import-Module X:\OSDCloud\Config\Scripts\Modules\TCGCloud\TCGCloud.psd1` |
+| `Start-WinREWiFi -WirelessConnect` | `Connect-TCGWiFi` |
 
 ## Recommended Migration Order
 
@@ -545,7 +571,7 @@ These components are already custom and don't depend on OSDCloud:
 - ✅ `Utils.ps1` — Custom Graph API helpers
 - ✅ `TCGLogging.psm1` / `Logging.psm1` — Custom logging
 - ✅ `TCGUtility.psm1` — Custom Graph API module
-- ✅ `Show-OSDCloudOverlay.ps1` — Custom WPF UI (except the `Start-OSDCloud` call)
+- ✅ `Show-OSDCloudOverlay.ps1` — Custom WPF UI
 - ✅ `StatusPatterns.json` — Custom log pattern matching
 - ✅ All SetupComplete and OOBE scripts
 - ✅ All .cmd entry points
