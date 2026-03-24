@@ -3,11 +3,11 @@
 
 <#
 .SYNOPSIS
-    Creates an OSDCloud USB drive with Windows ADK, WinPE, and optional Office deployment.
+    Creates a TCGCloud USB drive with Windows ADK, WinPE, and optional Office deployment.
 .DESCRIPTION
-    This script automates the creation of an OSDCloud USB drive by:
+    This script automates the creation of a TCGCloud USB drive by:
     - Installing Windows ADK and WinPE components if needed
-    - Creating an OSDCloud template and workspace
+    - Creating a TCGCloud template and workspace (using the native TCGCloud module)
     - Adding custom scripts and configuration
     - Formatting and preparing a USB drive
     - Adding Windows installation media
@@ -22,7 +22,7 @@
 .PARAMETER NoOS
     Skip OS installation if specified
 .NOTES
-    Version: 1.0
+    Version: 2.0
     Created by: TCG
 #>
 
@@ -378,28 +378,21 @@ function Install-Prerequisites {
     param()
     
     try {
-        # Install NuGet if not present
-        if (-not (Get-PackageProvider -ListAvailable -Name NuGet -ErrorAction SilentlyContinue)) {
-            Write-Status "Installing NuGet provider..." -Type Info
-            Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force | Out-Null
+        # Load the TCGCloud module from the Scripts directory bundled with this script
+        $tcgModulePath = Join-Path $PSScriptRoot 'Scripts\Modules\TCGCloud\TCGCloud.psd1'
+        if (Test-Path $tcgModulePath) {
+            Import-Module $tcgModulePath -Force -ErrorAction Stop
+            Write-Status "TCGCloud module loaded from: $tcgModulePath" -Type Success
         }
-
-        # Install OSDCloud module if not present
-        if (-not (Get-Module -ListAvailable -Name OSDCloud)) {
-            Write-Status "Installing OSDCloud module..." -Type Info
-            Install-Module OSDCloud -Force -SkipPublisherCheck
-        }
-        
-        # Install OSD module if not present (required by some functions)
-        if (-not (Get-Module -ListAvailable -Name OSD)) {
-            Write-Status "Installing OSD module..." -Type Info
-            Install-Module OSD -Force
+        else {
+            Write-Status "TCGCloud module not found at: $tcgModulePath" -Type Error
+            return $false
         }
 
         return $true
     }
     catch {
-        Write-Status "Failed to install prerequisites: $_" -Type Error
+        Write-Status "Failed to load prerequisites: $_" -Type Error
         return $false
     }
 }
@@ -1314,16 +1307,15 @@ function Show-CompletionDocumentation {
     # Driver Pack Instructions
     Write-Host "🔧 ADDING DRIVER PACKS FOR SPECIFIC HARDWARE MODELS:" -ForegroundColor Green
     Write-Host "   Run the following commands to add driver packages for your specific hardware:"
-    Write-Host "   • Update-OSDCloudUSB -DriverPack Dell" -ForegroundColor White
-    Write-Host "   • Update-OSDCloudUSB -DriverPack HP" -ForegroundColor White
-    Write-Host "   • Update-OSDCloudUSB -DriverPack Lenovo" -ForegroundColor White
-    Write-Host "   • Update-OSDCloudUSB -DriverPack Microsoft" -ForegroundColor White
-    Write-Host "   • Update-OSDCloudUSB -DriverPack * (All manufacturers)" -ForegroundColor White
+    Write-Host "   • Edit-TCGWinPE -BootWimPath <path\to\boot.wim> -DriverPaths @('C:\Drivers\Dell')" -ForegroundColor White
+    Write-Host "   • Edit-TCGWinPE -BootWimPath <path\to\boot.wim> -DriverPaths @('C:\Drivers\HP')" -ForegroundColor White
+    Write-Host "   • Edit-TCGWinPE -BootWimPath <path\to\boot.wim> -DriverPaths @('C:\Drivers\Lenovo')" -ForegroundColor White
+    Write-Host "   • Edit-TCGWinPE -BootWimPath <path\to\boot.wim> -DriverPaths @('C:\Drivers')" -ForegroundColor White
     
     # Additional OS Images
     Write-Host "`n💿 ADDING ADDITIONAL OPERATING SYSTEMS:" -ForegroundColor Green
     Write-Host "   To add Windows 10 for offline deployment, run:"
-    Write-Host "   • Update-OSDCloudUSB -OSName 'Windows 10 22H2'" -ForegroundColor White
+    Write-Host "   • Update-TCGUSB -OSName 'Windows 10 22H2'" -ForegroundColor White
     
     # Testing and Verification
     Write-Host "`n🔍 TESTING AND VERIFICATION:" -ForegroundColor Green
@@ -1371,26 +1363,22 @@ try {
     }
     
     # Module Verification
-    Write-TaskHeader "OSDCloud Verification"
-    Write-Status "Checking OSDCloud module installation" -Type Info
-    $importedModule = Get-Module -Name OSD
-    $availableModule = Get-Module -ListAvailable -Name OSD | Sort-Object Version -Descending | Select-Object -First 1
-    if (-not $availableModule) {
-        Write-Status "Installing OSDCloud module" -Type Info
-        Set-ExecutionPolicy RemoteSigned -Force
-        Install-Module OSD -Force
-        Write-Status "OSDCloud module installed" -Type Success
-    }
-    else {
-        $onlineModule = Find-Module -Name OSD -ErrorAction SilentlyContinue
-        if ($onlineModule -and $onlineModule.Version -gt $availableModule.Version) {
-            Write-Status "Updating OSDCloud module" -Type Info
-            Update-Module OSD -Force
-            Write-Status "OSDCloud module updated to version $($onlineModule.Version)" -Type Success
+    Write-TaskHeader "TCGCloud Module Verification"
+    Write-Status "Checking TCGCloud module installation" -Type Info
+    $tcgModule = Get-Module -Name TCGCloud -ErrorAction SilentlyContinue
+    if (-not $tcgModule) {
+        Write-Status "TCGCloud module is not loaded — attempting re-import" -Type Warning
+        $tcgModulePath = Join-Path $PSScriptRoot 'Scripts\Modules\TCGCloud\TCGCloud.psd1'
+        if (Test-Path $tcgModulePath) {
+            Import-Module $tcgModulePath -Force -ErrorAction Stop
+            Write-Status "TCGCloud module loaded" -Type Success
         }
         else {
-            Write-Status "Using OSDCloud module version $($availableModule.Version)" -Type Success
+            throw "TCGCloud module not found at: $tcgModulePath"
         }
+    }
+    else {
+        Write-Status "TCGCloud module version $($tcgModule.Version) is loaded" -Type Success
     }
 
     # Install ADK components
@@ -1426,38 +1414,41 @@ try {
     }
     
     # Workspace and custom configuration
-    Write-TaskHeader "📂 OSDCloud Workspace"
+    Write-TaskHeader "📂 TCGCloud Workspace"
     
-    # Import OSDCloud module explicitly to ensure functions are available
-    Import-Module OSDCloud -Force -ErrorAction Stop
+    # Check for TCGCloud template
+    Write-Status "Checking for TCGCloud template" -Type Info
     
-    # Check for OSDCloud template
-    Write-Status "Checking for OSDCloud template" -Type Info
-    
-    # Get template directly using the OSD module's cmdlet
     try {
-        $templatePath = Get-OSDCloudTemplate -ErrorAction Stop
+        $templatePath = Get-TCGTemplate -Name 'TCGCloud'
         
-        # Check if TCGCloud is part of the template path
-        if ($templatePath -match "TCGCloud") {
+        if ($templatePath) {
             Write-Status "Found TCGCloud template at: $templatePath" -Type Success
         }
         else {
             Write-Status "Creating TCGCloud template" -Type Info
-            New-OSDCloudTemplate -Name "TCGCloud" -WinRE -ErrorAction Stop
-            Write-Status "New OSDCloud template created" -Type Success
+            $templatePath = New-TCGTemplate -Name 'TCGCloud'
+            if ($templatePath) {
+                Write-Status "TCGCloud template created at: $templatePath" -Type Success
+            }
         }
     }
     catch {
-        Write-Status "Error checking OSDCloud template: $_" -Type Warning
+        Write-Status "Error checking TCGCloud template: $_" -Type Warning
         Write-Status "Creating TCGCloud template" -Type Info
         
         try {
-            New-OSDCloudTemplate -Name "TCGCloud" -WinRE -ErrorAction Stop
-            Write-Status "New OSDCloud template created" -Type Success
+            $templatePath = New-TCGTemplate -Name 'TCGCloud'
+            if ($templatePath) {
+                Write-Status "TCGCloud template created at: $templatePath" -Type Success
+            }
+            else {
+                Write-Status "Failed to create TCGCloud template" -Type Error
+                Write-Status "Will continue without template" -Type Warning
+            }
         }
         catch {
-            Write-Status "Failed to create OSDCloud template: $_" -Type Error
+            Write-Status "Failed to create TCGCloud template: $_" -Type Error
             Write-Status "Will continue without template" -Type Warning
         }
     }
@@ -1466,9 +1457,9 @@ try {
     $workspacePath = Join-Path $WorkingDirectory "Media"
     $hasValidWorkspace = $false
 
-    # More thorough check for valid workspace - check for key OSDCloud files/folders
+    # More thorough check for valid workspace - check for key TCGCloud files/folders
     if (Test-Path $workspacePath) {
-        # Check for essential OSDCloud workspace components
+        # Check for essential TCGCloud workspace components
         $requiredPaths = @(
             (Join-Path $workspacePath "sources\boot.wim"),
             (Join-Path $workspacePath "EFI"),
@@ -1497,55 +1488,16 @@ try {
     
     if ($recreateWorkspace) {
         Write-Status "Creating workspace from template" -Type Info
-        $workspaceLog = Join-Path $script:Config.Paths.Logs "workspace_creation.log"
         
-        # Create workspace setup
         try {
-            # Ensure we have a valid media path
-            if (-not (Test-Path $workspacePath)) {
-                New-RequiredDirectory -Path $workspacePath | Out-Null
+            $wsResult = New-TCGWorkspace -WorkspacePath $WorkingDirectory -TemplateName 'TCGCloud'
+            if ($wsResult) {
+                Write-Status "Workspace created successfully" -Type Success
             }
-            
-            # Try to create workspace with -WorkspacePath parameter first
-            $workspaceParams = @{
-                WorkspacePath = $WorkingDirectory
-                ErrorAction   = 'Stop'
+            else {
+                Write-Status "Failed to create workspace" -Type Error
+                Write-Status "Will attempt to continue with USB creation anyway" -Type Warning
             }
-            
-            try {
-                New-OSDCloudWorkspace @workspaceParams 2>&1 | ForEach-Object {
-                    $_ | Out-File -Append -FilePath $workspaceLog
-                    if ($_ -match "Copying|Creating|Extracting|Applying") { Write-Host $_ }
-                }
-            }
-            catch {
-                # If that fails, try the old method without parameters
-                Write-Status "First workspace creation attempt failed, trying alternative method..." -Type Warning
-                
-                # Manually create the necessary directory structure
-                $requiredPaths = @(
-                    "$WorkingDirectory\Media",
-                    "$WorkingDirectory\Media\OSDCloud",
-                    "$WorkingDirectory\Media\OSDCloud\OS",
-                    "$WorkingDirectory\Media\scripts",
-                    "$WorkingDirectory\Media\sources",
-                    "$WorkingDirectory\Media\boot"
-                )
-                
-                foreach ($path in $requiredPaths) {
-                    New-RequiredDirectory -Path $path | Out-Null
-                }
-                
-                # Try to run New-OSDCloudWorkspace without parameters
-                Push-Location $WorkingDirectory
-                New-OSDCloudWorkspace 2>&1 | ForEach-Object {
-                    $_ | Out-File -Append -FilePath $workspaceLog
-                    if ($_ -match "Copying|Creating|Extracting|Applying") { Write-Host $_ }
-                }
-                Pop-Location
-            }
-            
-            Write-Status "Workspace created successfully" -Type Success
         }
         catch {
             Write-Status "Failed to create workspace: $_" -Type Error
@@ -1652,34 +1604,34 @@ try {
         throw "Unable to find a suitable USB drive after $maxAttempts attempts. Please ensure a USB drive is connected and try again."
     }
     
-    # Let the OSD module handle disk selection, confirmation, and formatting
+    # Use the TCGCloud module to format and populate the USB drive
     Write-Status "Preparing USB media" -Type Info
-    $usbLog = Join-Path $script:Config.Paths.Logs "usb_creation.log"
     
-    New-OSDCloudUSB -WorkspacePath $script:Config.Paths.Working 2>&1 | ForEach-Object {
-        $_ | Out-File -Append -FilePath $usbLog
-        if ($_ -match "^={10,}|^\d{4}-\d{2}-\d{2}") { 
-            Convert-ToTaskHeader $_ 
-        }
-        elseif ($_ -match "^100%\s+New File\s+(.+?)\s+(.+)$") { 
-            Write-Status "Adding: $($Matches[2])" -Type Info 
-        }
-        else {
-            if ($_ -match "Error|Failed|Exception") { 
-                Write-Status $_ -Type Error 
-            }
-        }
+    $usbResult = New-TCGUSB -WorkspacePath $script:Config.Paths.Working -DiskNumber $usbDrive.Disk.Number -Force
+    if (-not $usbResult.Success) {
+        throw "Failed to create TCGCloud USB: check above output for details"
     }
+    $usbDriveLetter = $usbResult.DriveLetter
+    Write-Status "USB drive prepared on $usbDriveLetter`:" -Type Success
     
     # Customize WinPE environment
     Write-Status "Customizing WinPE environment" -Type Info
+    $bootWimPath  = Join-Path $script:Config.Paths.Working "Media\sources\boot.wim"
     $wallpaperPath = Join-Path $WorkingDirectory "Config\Scripts\Custom\wallpaper.jpg"
+    $driversPath  = Join-Path $WorkingDirectory "Drivers"
     
-    if (Test-Path $wallpaperPath) {
-        Edit-OSDCloudWinPE -Wallpaper $wallpaperPath -CloudDriver * -DriverPath .\Drivers -WirelessConnect -UpdateUSB
+    $editParams = @{
+        BootWimPath     = $bootWimPath
+        WirelessConnect = $true
+        CloudDriver     = '*'
+        UpdateUSB       = $usbDriveLetter
     }
-    else {
-        Edit-OSDCloudWinPE -CloudDriver * -DriverPath .\Drivers -WirelessConnect -UpdateUSB
+    if (Test-Path $wallpaperPath) { $editParams['Wallpaper'] = $wallpaperPath }
+    if (Test-Path $driversPath)   { $editParams['DriverPaths'] = @($driversPath) }
+    
+    $editResult = Edit-TCGWinPE @editParams
+    if (-not $editResult) {
+        Write-Status "WinPE customization reported an issue — USB may still be usable" -Type Warning
     }
     
     Write-Status "USB media created successfully" -Type Success
@@ -1694,20 +1646,20 @@ try {
             Write-Status "Adding specified OS: $OSName" -Type Info
             
             try {
-                Update-OSDCloudUSB -OSName $OSName -OSActivation Volume
-                Write-Status "Operating system added successfully" -Type Success
+                $osUpdateResult = Update-TCGUSB -OSName $OSName -OSActivation Volume -USBPath "${usbDriveLetter}:"
+                if ($osUpdateResult.Success) {
+                    Write-Status "Operating system added successfully" -Type Success
+                }
+                else {
+                    Write-Status "OS update reported a non-success result — continuing" -Type Warning
+                }
                 
                 # Use the specified language
                 $languageCode = $OSLanguage
             }
             catch {
-                if ($_.Exception.Message -match "needs to be remounted") {
-                    $Error.RemoveAt(0)
-                    Write-Status "Operating system added successfully" -Type Success
-                }
-                else { 
-                    throw 
-                }
+                Write-Status "Error adding OS '$OSName': $_ — continuing with USB setup" -Type Warning
+                $languageCode = $OSLanguage
             }
         }
         else {
@@ -1715,8 +1667,13 @@ try {
             Write-Status "Adding Windows 11 24H2" -Type Info
             
             try {
-                Update-OSDCloudUSB -OSName "Windows 11 24H2" -OSActivation Volume
-                Write-Status "OS selection complete" -Type Success
+                $osUpdateResult = Update-TCGUSB -OSName "Windows 11 24H2" -OSActivation Volume -USBPath "${usbDriveLetter}:"
+                if ($osUpdateResult.Success) {
+                    Write-Status "OS selection complete" -Type Success
+                }
+                else {
+                    Write-Status "OS update reported a non-success result — continuing" -Type Warning
+                }
                     
                 # Try to detect the OS language from files on the USB
                 $osFiles = $null
@@ -1750,13 +1707,8 @@ try {
                 }
             }
             catch {
-                if ($_.Exception.Message -match "needs to be remounted") {
-                    $Error.RemoveAt(0)
-                    Write-Status "OS selection complete" -Type Success
-                }
-                else { 
-                    throw 
-                }
+                Write-Status "Error adding OS: $_ — continuing with USB setup" -Type Warning
+                $languageCode = $OSLanguage
             }
         }
         
@@ -1819,11 +1771,8 @@ catch {
     $_ | Format-List * -Force | Out-String | Write-Host -ForegroundColor Red
 }
 finally {
-    # Suppress specific non-critical module path errors
+    # Suppress specific non-critical errors
     $suppressedErrors = @(
-        "*Cannot find path*OSDCloud*Lib*because it does not exist*",
-        "*Cannot find path*OSDCloud*Enums*because it does not exist*",
-        "*Cannot find path*OSDCloud*Classes*because it does not exist*",
         "*We did not find any results for*",
         "*Cannot validate argument on parameter 'Uri'*",
         "*The argument is null or empty*"
