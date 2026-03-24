@@ -1,7 +1,7 @@
 # Name: Remove-OSDCloudFolders.ps1
 
 # Start transcript logging
-Start-Transcript -Path "$env:SystemRoot\Temp\OSDCloud-Cleanup.log" -Force
+Start-Transcript -Path "$env:SystemRoot\Temp\TCGCloud-Cleanup.log" -Force
 
 try {
     Write-Host "Starting OSDCloud folders cleanup..."
