@@ -149,7 +149,8 @@ function Start-TCGDeploy {
 
     # Fallback: C: if it is an NTFS volume (common in test environments)
     if (-not $windowsDrive) {
-        if ((Get-Volume -DriveLetter 'C' -ErrorAction SilentlyContinue)?.FileSystem -eq 'NTFS') {
+        $cVol = Get-Volume -DriveLetter 'C' -ErrorAction SilentlyContinue
+        if ($cVol -and $cVol.FileSystem -eq 'NTFS') {
             $windowsDrive = 'C:'
         }
     }
