@@ -30,7 +30,7 @@ Step-by-step migration plan to replace the OSDCloud module dependency with custo
 | Function | What It Does For Us | Replacement Complexity |
 |---|---|---|
 | `Import-Module OSD` | Loads helper functions for WinPE | 🟡 Medium — need to identify which helpers we use |
-| `Start-OSDCloud` | Downloads OS image, applies to disk with DISM | 🔴 Hard — core deployment engine |
+| `Start-OSDCloud` | Downloads OS image, applies to disk with DISM | ✅ Done — `Start-TCGDeploy` (Phase 4) |
 | `Start-WinREWiFi` | Connects to WiFi in WinPE | 🟢 Easy — netsh wlan wrapper |
 
 ## Migration Phases
@@ -496,7 +496,7 @@ Run OSDCloud and TCGCloud versions in parallel on identical hardware to compare 
 | **Phase 1** | Foundation (module structure, WiFi, template check) | ~5 hours | Low | Nothing | ✅ Complete |
 | **Phase 2** | Workspace & template creation | ~6 hours | Medium | Phase 1 | ✅ Complete |
 | **Phase 3** | USB media creation & WinPE customization | ~18 hours | Medium-High | Phase 2 | ✅ Complete |
-| **Phase 4** | Core deployment engine replacement | ~18 hours | High | Phase 3 | ⬜ Planned |
+| **Phase 4** | Core deployment engine replacement | ~18 hours | High | Phase 3 | ✅ Complete |
 | **Phase 5** | Testing & validation | ~8 hours | — | Phase 4 | ⬜ Planned |
 | **Total** | | **~55 hours** | | | |
 

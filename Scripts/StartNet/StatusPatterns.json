@@ -11,6 +11,16 @@
             "message": "Installing $1"
         },
         {
+            "category": "OS Selection",
+            "pattern": "OSDStatus: Starting TCGDeploy for (.+)",
+            "message": "Installing $1"
+        },
+        {
+            "category": "OS Selection",
+            "pattern": "OSDStatus: Starting deployment with language .+ and OS (.+)",
+            "message": "Installing $1"
+        },
+        {
             "category": "Network",
             "pattern": "Checking network connectivity",
             "message": "Verifying network connection..."
@@ -331,9 +341,74 @@
             "message": "Windows installation complete. Preparing to restart."
         },
         {
+            "category": "Completion",
+            "pattern": "OSDStatus: TCGDeploy complete",
+            "message": "Windows installation complete. Preparing to restart."
+        },
+        {
+            "category": "Deployment",
+            "pattern": "OSDStatus: Applying Windows image",
+            "message": "Copying Windows files to disk..."
+        },
+        {
+            "category": "Deployment",
+            "pattern": "OSDStatus: Windows image applied successfully",
+            "message": "Windows files copied successfully"
+        },
+        {
+            "category": "Deployment",
+            "pattern": "OSDStatus: Configuring boot environment",
+            "message": "Configuring boot manager..."
+        },
+        {
+            "category": "Deployment",
+            "pattern": "OSDStatus: Boot environment configured",
+            "message": "Boot configuration complete"
+        },
+        {
+            "category": "Deployment",
+            "pattern": "OSDStatus: Copying SetupComplete scripts",
+            "message": "Installing post-setup scripts..."
+        },
+        {
+            "category": "Deployment",
+            "pattern": "OSDStatus: Copying OOBE scripts",
+            "message": "Installing OOBE scripts..."
+        },
+        {
+            "category": "Deployment",
+            "pattern": "OSDStatus: Autopilot profile injected",
+            "message": "Autopilot profile applied"
+        },
+        {
+            "category": "Deployment",
+            "pattern": "OSDStatus: Applying drivers from",
+            "message": "Installing device drivers..."
+        },
+        {
+            "category": "Deployment",
+            "pattern": "OSDStatus: Offline drivers applied",
+            "message": "Device drivers installed"
+        },
+        {
+            "category": "Deployment",
+            "pattern": "OSDStatus: Using native TCGDeploy engine",
+            "message": "Initializing deployment engine..."
+        },
+        {
             "category": "Error",
             "pattern": "Error in OSDCloud process",
             "message": "An error occurred during installation"
+        },
+        {
+            "category": "Error",
+            "pattern": "Error in deployment process",
+            "message": "An error occurred during installation"
+        },
+        {
+            "category": "Error",
+            "pattern": "Start-TCGDeploy failed",
+            "message": "Deployment engine reported an error"
         },
         {
             "category": "Error",
