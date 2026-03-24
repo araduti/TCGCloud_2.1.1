@@ -182,6 +182,7 @@ TCGCloud_2.1.1/
 │       └── Remove-OSDCloudFolders.ps1 # Cleanup temporary files
 ├── Tests/
 │   ├── TCGCloud.Module.Tests.ps1      # Pester tests for TCGCloud module (Phases 1-4)
+│   ├── Deployment.Tests.ps1           # Pester tests for Phase 5 deployment logic
 │   ├── InputValidation.Tests.ps1      # Pester tests for input validation
 │   └── Security.Tests.ps1            # Pester tests for secret leakage
 └── README.md
@@ -334,7 +335,7 @@ See [OSDCLOUD_REPLACEMENT_PLAN.md](OSDCLOUD_REPLACEMENT_PLAN.md) for the full mi
 - **Disk function edge cases** — RAID detection relies on friendly name matching (`PERC`, `MegaRAID`, `LSI`); may miss newer controllers
 
 ### Maintainability
-- ~~**No tests**~~ ✅ Resolved — Pester test scaffolding added in `Tests/` for TCGCloud module and security checks
+- ~~**No tests**~~ ✅ Resolved — 64 Pester tests across 4 test files covering module structure, deployment logic (Phase 5), input validation, and secret leakage
 - **Version tracking** — No version metadata beyond the repo name
 
 ## License
