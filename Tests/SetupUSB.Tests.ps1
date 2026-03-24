@@ -122,3 +122,29 @@ Describe '_init.ps1 — TCGCloud migration' {
         }
     }
 }
+
+Describe 'SetupComplete.ps1 — OSD module removal' {
+
+    BeforeAll {
+        $script:setupCompletePath    = Join-Path $PSScriptRoot '..\Scripts\SetupComplete\SetupComplete.ps1'
+        $script:setupCompleteContent = Get-Content -Path $script:setupCompletePath -Raw
+    }
+
+    Context 'Script file exists' {
+
+        It 'SetupComplete.ps1 exists' {
+            Test-Path $script:setupCompletePath | Should -BeTrue
+        }
+    }
+
+    Context 'No OSD module dependency remains' {
+
+        It 'Does not import the OSD module' {
+            $script:setupCompleteContent | Should -Not -Match 'Import-Module\s+OSD\b'
+        }
+
+        It 'Does not install the OSD module from PSGallery' {
+            $script:setupCompleteContent | Should -Not -Match 'Install-Module\s+OSD\b'
+        }
+    }
+}

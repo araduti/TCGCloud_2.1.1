@@ -507,7 +507,8 @@ enables a side-by-side rollback path during the final validation phase.
 | **Phase 5** | Testing & validation | ~8 hours | — | Phase 4 | ✅ Complete |
 | **Phase 6** | Caller-site cutover (Setup-OSDCloudUSB.ps1 + _init.ps1) | ~2 hours | Low | Phase 5 | ✅ Complete |
 | **Phase 7** | Fix completion detection + rename OSDCloud log file names | ~2 hours | Low | Phase 6 | ✅ Complete |
-| **Total** | | **~59 hours** | | | |
+| **Phase 8** | Remove last OSD module import from SetupComplete.ps1 | ~1 hour | Low | Phase 7 | ✅ Complete |
+| **Total** | | **~60 hours** | | | |
 
 ## Phase 6: Caller-Site Cutover ✅ Complete
 
@@ -609,3 +610,32 @@ every successful native deployment the overlay would fall through to the
 - `OSDCloudOverlay.Tests.ps1` — `Installation Complete` path exists for exit code 0
 - `OSDCloudOverlay.Tests.ps1` — `Invoke-OSDCloudDeployment.ps1` emits `TCGCloud Finished`
 - `OSDCloudOverlay.Tests.ps1` — deployment script uses `TCGCloud-Transcript.log`
+
+## Phase 8: Remove Last OSD Module Import from SetupComplete.ps1 ✅ Complete
+
+### Dependency removed: `Import-Module OSD` in post-install script
+
+`Scripts/SetupComplete/SetupComplete.ps1` contained the last non-legacy `Import-Module OSD`
+call in the codebase.  It was wrapped in a `try/catch` so deployment did not fail when the
+OSD module was absent, but it would attempt a PSGallery install on every fresh deployment if
+the module happened to be cached — adding unnecessary external dependency and increasing
+surface area for supply-chain risk.
+
+The code inside `SetupComplete.ps1` that relied on the OSD module was:
+- `Install-WindowsUpdate -UpdateCategory Driver -AcceptAll` — already guarded by a
+  `Get-Command` check, so the call path was only taken when OSD was already present.
+  The PSWindowsUpdate and Windows COM-based fallback paths (which follow immediately in
+  the same `if/elseif/else` block) cover the same functionality without the OSD dependency.
+
+### Changes
+
+| File | Was | Now |
+|---|---|---|
+| `Scripts/SetupComplete/SetupComplete.ps1` | `Import-Module OSD -ErrorAction Stop` (try/catch) | Removed; COM + PSWindowsUpdate fallback remain |
+| `Tests/SetupUSB.Tests.ps1` | No coverage of SetupComplete.ps1 | New `Describe` block: verifies no `Import-Module OSD` or `Install-Module OSD` |
+
+### Tests added (3 new, total: 102 tests, 0 failures)
+
+- `SetupUSB.Tests.ps1` — `SetupComplete.ps1` file exists
+- `SetupUSB.Tests.ps1` — `SetupComplete.ps1` does not import the OSD module
+- `SetupUSB.Tests.ps1` — `SetupComplete.ps1` does not install the OSD module from PSGallery
