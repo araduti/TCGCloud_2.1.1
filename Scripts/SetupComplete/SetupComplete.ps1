@@ -1,13 +1,5 @@
 Start-Transcript -Path "$env:SystemRoot\Logs\SetupComplete-WindowsUpdates.log" -Force
 
-# Import OSD Module if needed
-try {
-    Import-Module OSD -ErrorAction Stop
-}
-catch {
-    Write-Output "Warning: OSD module not available. Some functions may not work."
-}
-
 # Define Windows Update Driver function if not already defined
 function Start-WindowsUpdateDriver {
     param()
@@ -30,7 +22,7 @@ function Start-WindowsUpdateDriver {
                     
                     # Use different methods depending on available cmdlets
                     if (Get-Command -Name Install-WindowsUpdate -ErrorAction SilentlyContinue) {
-                        # Use OSD module approach if available
+                        # PSWindowsUpdate module approach
                         Install-WindowsUpdate -UpdateCategory Driver -AcceptAll
                     }
                     elseif (Get-Command -Name Start-WUScan -ErrorAction SilentlyContinue) {
