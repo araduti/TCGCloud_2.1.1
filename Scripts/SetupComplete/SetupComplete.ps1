@@ -1,64 +1,20 @@
 Start-Transcript -Path "$env:SystemRoot\Logs\SetupComplete-WindowsUpdates.log" -Force
 
-# Define Windows Update Driver function if not already defined
-function Start-WindowsUpdateDriver {
-    param()
-    
-    Write-Output "Starting Windows Update Driver detection at $(Get-Date)"
-    try {
-        # Check if Get-WindowsDriver exists
-        if (Get-Command -Name Get-WindowsDriver -ErrorAction SilentlyContinue) {
-            Write-Output "Scanning for driver updates..."
-            
-            # Search for missing drivers
-            $missingDrivers = Get-WindowsDriver -Online -All | Where-Object { $_.DriverStatus -eq "Missing" }
-            
-            if ($missingDrivers) {
-                Write-Output "Found $($missingDrivers.Count) missing drivers"
-                
-                # Try to update drivers through Windows Update
-                try {
-                    Write-Output "Searching Windows Update for drivers..."
-                    
-                    # Use different methods depending on available cmdlets
-                    if (Get-Command -Name Install-WindowsUpdate -ErrorAction SilentlyContinue) {
-                        # PSWindowsUpdate module approach
-                        Install-WindowsUpdate -UpdateCategory Driver -AcceptAll
-                    }
-                    elseif (Get-Command -Name Start-WUScan -ErrorAction SilentlyContinue) {
-                        # PSWindowsUpdate module approach
-                        Start-WUScan -SearchCriteria "IsInstalled=0 AND Type='Driver'" -AcceptAll -Install
-                    }
-                    else {
-                        # Fallback to basic Windows Update approach
-                        Write-Output "No specialized Windows Update cmdlets found, using basic approach"
-                        (New-Object -ComObject Microsoft.Update.Session).CreateUpdateSearcher().Search("IsInstalled=0 AND Type='Driver'").Updates | ForEach-Object {
-                            Write-Output "Found driver: $($_.Title)"
-                        }
-                    }
-                }
-                catch {
-                    Write-Output "Error searching Windows Update: $_"
-                }
-            }
-            else {
-                Write-Output "No missing drivers detected"
-            }
-        }
-        else {
-            Write-Output "Get-WindowsDriver command not available on this system"
-        }
-    }
-    catch {
-        Write-Output "Error in Start-WindowsUpdateDriver: $_"
-    }
-    
-    Write-Output "Completed Windows Update Driver detection at $(Get-Date)"
+# Load TCGCloud module for on-demand, vendor-specific driver installation
+$tcgModulePath = 'C:\OSDCloud\Config\Scripts\Modules\TCGCloud\TCGCloud.psd1'
+if (Test-Path $tcgModulePath) {
+    Import-Module $tcgModulePath -Force -ErrorAction SilentlyContinue
 }
 
-Write-Output "Running Windows Update Drivers Function [Start-WindowsUpdateDriver] | Time: $($(Get-Date).ToString("hh:mm:ss"))"
-Start-WindowsUpdateDriver
-Write-Output "Completed Section [Start-WindowsUpdateDriver] | Time: $($(Get-Date).ToString("hh:mm:ss"))"
+Write-Output "Running vendor-specific driver updates [Invoke-TCGDriverUpdate] | Time: $($(Get-Date).ToString("hh:mm:ss"))"
+if (Get-Command -Name Invoke-TCGDriverUpdate -ErrorAction SilentlyContinue) {
+    $driverResult = Invoke-TCGDriverUpdate -Force -LogPath "$env:SystemRoot\Logs\SetupComplete-WindowsUpdates.log"
+    Write-Output "Driver update result: Provider=$($driverResult.Provider), Success=$($driverResult.Success), Message=$($driverResult.Message)"
+}
+else {
+    Write-Output "Invoke-TCGDriverUpdate not available — skipping vendor driver update"
+}
+Write-Output "Completed Section [Invoke-TCGDriverUpdate] | Time: $($(Get-Date).ToString("hh:mm:ss"))"
 Write-Output "-------------------------------------------------------------"
 
 Write-Output "Running Windows OS Updates | Time: $($(Get-Date).ToString("hh:mm:ss"))"
