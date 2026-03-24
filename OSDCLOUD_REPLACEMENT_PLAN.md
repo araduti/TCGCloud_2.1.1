@@ -639,3 +639,66 @@ The code inside `SetupComplete.ps1` that relied on the OSD module was:
 - `SetupUSB.Tests.ps1` — `SetupComplete.ps1` file exists
 - `SetupUSB.Tests.ps1` — `SetupComplete.ps1` does not import the OSD module
 - `SetupUSB.Tests.ps1` — `SetupComplete.ps1` does not install the OSD module from PSGallery
+
+## Phase 9: On-Demand Vendor-Specific Driver Installation ✅ Complete
+
+### Problem
+
+The previous driver installation approach had two weaknesses:
+
+1. **Offline driver packs** — `Start-TCGDeploy` (Step 10) only applied drivers when a
+   pre-downloaded pack existed at `$vol:\OSDCloud\Drivers` on the USB. No pack = no drivers.
+2. **Static generic scan** — `SetupComplete.ps1` used a home-grown `Start-WindowsUpdateDriver`
+   function that ran `Get-WindowsDriver -Online -All` then fell through a chain of
+   `Install-WindowsUpdate` / `Start-WUScan` / COM-API calls, none of which were aware of the
+   actual hardware vendor and which drivers that vendor recommended.
+
+### Solution — `Invoke-TCGDriverUpdate`
+
+A new exported function added to the `TCGCloud` module dispatches to the
+**vendor-specific tool or module** for the detected hardware:
+
+| Manufacturer | Provider | Tool |
+|---|---|---|
+| Dell | `DellCommandUpdate` | `dcu-cli.exe /applyupdates -updateType=driver` (installed via `winget` if absent) |
+| HP / Hewlett-Packard | `HPCMSL` | `Install-Module HPCMSL` → `Get-HPDriverPackCatalog` + `Get-Softpaq` |
+| Lenovo | `LSUClient` | `Install-Module LSUClient` → `Get-LSUpdate` + `Install-LSUpdate` |
+| Microsoft (Surface) | `WindowsUpdate` | Windows Update (Surface firmware/drivers ship via WU) |
+| Any other | `WindowsUpdate` | `Install-Module PSWindowsUpdate` → `Install-WindowsUpdate -UpdateType Driver`, COM API fallback |
+
+Key design decisions:
+
+- **Auto-detection**: manufacturer read from `Win32_ComputerSystem` via CIM (WMI fallback).
+- **`-Manufacturer` override**: allows callers to pass a manufacturer string explicitly — used
+  in tests to exercise each vendor code path without real hardware.
+- **Non-fatal**: every error path writes a warning and returns `Success=$false` rather than
+  throwing, so a driver-update failure never blocks a successful deployment.
+- **`-LogPath`**: optional append-only log file path, so SetupComplete transcript gets driver
+  output without the function needing to know about the outer transcript.
+- **Return contract**: `[PSCustomObject]` with `Manufacturer`, `Provider`, `Success`, `Message`
+  — consistent with the `Start-TCGDeploy` return shape.
+
+### Changes
+
+| File | Was | Now |
+|---|---|---|
+| `Scripts/Modules/TCGCloud/Public/Invoke-TCGDriverUpdate.ps1` | _(new)_ | Vendor-aware on-demand driver installer |
+| `Scripts/Modules/TCGCloud/TCGCloud.psd1` | 8 exports | 9 exports (adds `Invoke-TCGDriverUpdate`) |
+| `Scripts/SetupComplete/SetupComplete.ps1` | Inline `Start-WindowsUpdateDriver` (generic WU scan) | Loads TCGCloud module and calls `Invoke-TCGDriverUpdate -Force` |
+
+### Tests added (40 new, total: 142 tests, 0 failures)
+
+New file: `Tests/DriverUpdate.Tests.ps1`
+
+- Module export — `Invoke-TCGDriverUpdate` is in `ExportedFunctions`
+- Parameter interface — `Manufacturer`, `LogPath`, `Force` exist and have correct types
+- Return object — all four properties present, `Success` is boolean, `Manufacturer` echoes override
+- Dell routing — Provider is `DellCommandUpdate`, no throw, non-empty Message
+- HP routing — Provider is `HPCMSL` for both `'HP'` and `'Hewlett-Packard'` strings
+- Lenovo routing — Provider is `LSUClient`, no throw
+- Surface routing — Provider is `WindowsUpdate` for `'Microsoft Corporation'`
+- Fallback routing — Provider is `WindowsUpdate` for unknown manufacturer, no throw, non-empty Message
+- LogPath — log file is created when path is provided; no throw when directory is missing
+- Source conventions — no OSD/OSDCloud import, references `dcu-cli.exe`, `HPCMSL`, `LSUClient`, COM API
+- SetupComplete integration — calls `Invoke-TCGDriverUpdate`, no old `Start-WindowsUpdateDriver` function, no OSD imports
+- `TCGCloud.Module.Tests.ps1` — `Exports expected functions` now asserts `Invoke-TCGDriverUpdate` is present

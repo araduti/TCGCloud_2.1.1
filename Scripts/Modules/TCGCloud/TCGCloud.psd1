@@ -16,6 +16,7 @@
         'Edit-TCGWinPE'
         'Update-TCGUSB'
         'Start-TCGDeploy'
+        'Invoke-TCGDriverUpdate'
     )
     PrivateData       = @{
         PSData = @{

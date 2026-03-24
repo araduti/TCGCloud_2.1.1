@@ -29,6 +29,7 @@ Describe 'TCGCloud Module' {
             $exported | Should -Contain 'Edit-TCGWinPE'
             $exported | Should -Contain 'Update-TCGUSB'
             $exported | Should -Contain 'Start-TCGDeploy'
+            $exported | Should -Contain 'Invoke-TCGDriverUpdate'
         }
 
         It 'Has version 2.1.1' {
