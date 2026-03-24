@@ -28,6 +28,7 @@ Describe 'TCGCloud Module' {
             $exported | Should -Contain 'New-TCGUSB'
             $exported | Should -Contain 'Edit-TCGWinPE'
             $exported | Should -Contain 'Update-TCGUSB'
+            $exported | Should -Contain 'Start-TCGDeploy'
         }
 
         It 'Has version 2.1.1' {
@@ -167,6 +168,52 @@ Describe 'TCGCloud Module' {
             $validateSet = $cmd.Parameters['OSActivation'].Attributes |
                 Where-Object { $_ -is [System.Management.Automation.ValidateSetAttribute] }
             $validateSet | Should -Not -BeNullOrEmpty
+        }
+    }
+
+    Context 'Start-TCGDeploy' {
+        It 'Is exported by the module' {
+            $exported = (Get-Module TCGCloud).ExportedFunctions.Keys
+            $exported | Should -Contain 'Start-TCGDeploy'
+        }
+
+        It 'Has expected parameters' {
+            $cmd = Get-Command Start-TCGDeploy
+            $cmd.Parameters.ContainsKey('OSLanguage')    | Should -BeTrue
+            $cmd.Parameters.ContainsKey('OSVersion')     | Should -BeTrue
+            $cmd.Parameters.ContainsKey('OSBuild')       | Should -BeTrue
+            $cmd.Parameters.ContainsKey('OSEdition')     | Should -BeTrue
+            $cmd.Parameters.ContainsKey('OSActivation')  | Should -BeTrue
+            $cmd.Parameters.ContainsKey('ZTI')           | Should -BeTrue
+            $cmd.Parameters.ContainsKey('SkipAutopilot') | Should -BeTrue
+            $cmd.Parameters.ContainsKey('SkipODT')       | Should -BeTrue
+        }
+
+        It 'OSActivation parameter has ValidateSet with Volume and Retail' {
+            $cmd = Get-Command Start-TCGDeploy
+            $validateSet = $cmd.Parameters['OSActivation'].Attributes |
+                Where-Object { $_ -is [System.Management.Automation.ValidateSetAttribute] }
+            $validateSet | Should -Not -BeNullOrEmpty
+            $validateSet.ValidValues | Should -Contain 'Volume'
+            $validateSet.ValidValues | Should -Contain 'Retail'
+        }
+
+        It 'Returns failure when no OS image is found (no USB, no local image)' {
+            # In CI there are no USB drives or mounted ISOs
+            $result = Start-TCGDeploy -ZTI -ErrorAction SilentlyContinue
+            $result.Success | Should -BeFalse
+        }
+
+        It 'Returns a PSCustomObject with Success, WindowsDrive, and Message properties' {
+            $result = Start-TCGDeploy -ZTI -ErrorAction SilentlyContinue
+            $result | Should -BeOfType [PSCustomObject]
+            $result.PSObject.Properties.Name | Should -Contain 'Success'
+            $result.PSObject.Properties.Name | Should -Contain 'WindowsDrive'
+            $result.PSObject.Properties.Name | Should -Contain 'Message'
+        }
+
+        It 'Accepts ScriptsRoot override without throwing' {
+            { Start-TCGDeploy -ScriptsRoot '/tmp' -ZTI -ErrorAction SilentlyContinue } | Should -Not -Throw
         }
     }
 }

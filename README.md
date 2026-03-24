@@ -102,7 +102,7 @@ Then upload `boot.wim`, `boot.sdi`, and `tcgcloud-scripts.zip` to a GitHub Relea
 │     ├─ POST to Autopilot via Microsoft Graph                 │
 │     └─ Poll for confirmation (max 25 × 30s)                 │
 │                                                              │
-│  Then: Initialize-CustomDisk → Start-OSDCloud → Monitor     │
+│  Then: Initialize-CustomDisk → Start-TCGDeploy → Monitor    │
 │  Progress: tail logs + match StatusPatterns.json → UX msgs   │
 └──────────────────────────────────────────────────────────────┘
                             ↓
@@ -142,7 +142,8 @@ TCGCloud_2.1.1/
 │   │       │   ├── Connect-TCGWiFi.ps1    # Replaces Start-WinREWiFi
 │   │       │   ├── New-TCGUSB.ps1         # Replaces New-OSDCloudUSB (Phase 3)
 │   │       │   ├── Edit-TCGWinPE.ps1      # Replaces Edit-OSDCloudWinPE (Phase 3)
-│   │       │   └── Update-TCGUSB.ps1      # Replaces Update-OSDCloudUSB (Phase 3)
+│   │       │   ├── Update-TCGUSB.ps1      # Replaces Update-OSDCloudUSB (Phase 3)
+│   │       │   └── Start-TCGDeploy.ps1    # Replaces Start-OSDCloud (Phase 4)
 │   │       └── Private/
 │   │           ├── Write-TCGStatus.ps1    # Shared status output helper
 │   │           ├── Mount-WimImage.ps1     # DISM mount/unmount helper (Phase 3)
@@ -180,7 +181,7 @@ TCGCloud_2.1.1/
 │       ├── Copy-OfficeSources.ps1     # Delegates to Shared/Copy-OfficeSources.ps1
 │       └── Remove-OSDCloudFolders.ps1 # Cleanup temporary files
 ├── Tests/
-│   ├── TCGCloud.Module.Tests.ps1      # Pester tests for TCGCloud module (Phases 1-3)
+│   ├── TCGCloud.Module.Tests.ps1      # Pester tests for TCGCloud module (Phases 1-4)
 │   ├── InputValidation.Tests.ps1      # Pester tests for input validation
 │   └── Security.Tests.ps1            # Pester tests for secret leakage
 └── README.md
@@ -218,8 +219,8 @@ TCGCloud_2.1.1/
 
 ### PowerShell Modules (Auto-Installed)
 
-- **OSDCloud** — Workspace, template, USB media, and WinPE customization (USB mode)
-- **OSD** — Core deployment helper functions (USB mode WinPE)
+- **OSDCloud** — Workspace, template, USB media, and WinPE customization (USB mode — fallback only, set `$env:TCG_USE_OSDCLOUD=true`)
+- **OSD** — Core deployment helper functions (USB mode WinPE — optional, graceful fallback)
 - **PSWindowsUpdate** — Driver and OS update management (installed during deployment)
 
 ## Deploying a Device
@@ -311,7 +312,7 @@ This project currently depends on the [OSDCloud](https://www.osdcloud.com/) Powe
 | `Edit-OSDCloudWinPE` | Setup-OSDCloudUSB.ps1 | Customizes WinPE (wallpaper, drivers, WiFi) | ✅ `Edit-TCGWinPE` (Phase 3) |
 | `Update-OSDCloudUSB` | Setup-OSDCloudUSB.ps1 | Adds OS installation files to USB | ✅ `Update-TCGUSB` (Phase 3) |
 | `Import-Module OSD` | _init.ps1, Show-OSDCloudOverlay.ps1 | Core OSD helper functions in WinPE | Optional (graceful fallback) |
-| `Start-OSDCloud` | Invoke-OSDCloudDeployment.ps1 | Executes Windows image deployment | Phase 4 (planned) |
+| `Start-OSDCloud` | Invoke-OSDCloudDeployment.ps1 | Executes Windows image deployment | ✅ `Start-TCGDeploy` (Phase 4) |
 | `Start-WinREWiFi` | _init.ps1 | WiFi connection in WinPE | ✅ `Connect-TCGWiFi` (Phase 1) |
 
 See [OSDCLOUD_REPLACEMENT_PLAN.md](OSDCLOUD_REPLACEMENT_PLAN.md) for the full migration strategy.

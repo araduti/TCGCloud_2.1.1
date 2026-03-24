@@ -15,6 +15,7 @@
         'New-TCGUSB'
         'Edit-TCGWinPE'
         'Update-TCGUSB'
+        'Start-TCGDeploy'
     )
     PrivateData       = @{
         PSData = @{
