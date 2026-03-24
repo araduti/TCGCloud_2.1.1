@@ -105,4 +105,24 @@ Describe 'Show-OSDCloudOverlay — deployment monitoring deduplication' {
             $script:deployContent | Should -Match 'TCGCloud-Transcript\.log'
         }
     }
+
+    Context 'Legacy OSDCloud fallback is removed (Phase 10)' {
+
+        BeforeAll {
+            $script:deployPath    = Join-Path $PSScriptRoot '..\Scripts\StartNet\Invoke-OSDCloudDeployment.ps1'
+            $script:deployContent = Get-Content -Path $script:deployPath -Raw
+        }
+
+        It 'Does not contain Import-Module OSD' {
+            $script:deployContent | Should -Not -Match '\bImport-Module\s+OSD\b'
+        }
+
+        It 'Does not contain Start-OSDCloud' {
+            $script:deployContent | Should -Not -Match '\bStart-OSDCloud\b'
+        }
+
+        It 'Does not reference TCG_USE_OSDCLOUD environment variable' {
+            $script:deployContent | Should -Not -Match 'TCG_USE_OSDCLOUD'
+        }
+    }
 }

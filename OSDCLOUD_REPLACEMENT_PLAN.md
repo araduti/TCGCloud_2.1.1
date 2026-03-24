@@ -508,7 +508,9 @@ enables a side-by-side rollback path during the final validation phase.
 | **Phase 6** | Caller-site cutover (Setup-OSDCloudUSB.ps1 + _init.ps1) | ~2 hours | Low | Phase 5 | ✅ Complete |
 | **Phase 7** | Fix completion detection + rename OSDCloud log file names | ~2 hours | Low | Phase 6 | ✅ Complete |
 | **Phase 8** | Remove last OSD module import from SetupComplete.ps1 | ~1 hour | Low | Phase 7 | ✅ Complete |
-| **Total** | | **~60 hours** | | | |
+| **Phase 9** | On-demand vendor-specific driver installation | ~4 hours | Low | Phase 8 | ✅ Complete |
+| **Phase 10** | Remove legacy OSDCloud fallback from deployment script | ~1 hour | Low | Phase 9 | ✅ Complete |
+| **Total** | | **~65 hours** | | | |
 
 ## Phase 6: Caller-Site Cutover ✅ Complete
 
@@ -702,3 +704,39 @@ New file: `Tests/DriverUpdate.Tests.ps1`
 - Source conventions — no OSD/OSDCloud import, references `dcu-cli.exe`, `HPCMSL`, `LSUClient`, COM API
 - SetupComplete integration — calls `Invoke-TCGDriverUpdate`, no old `Start-WindowsUpdateDriver` function, no OSD imports
 - `TCGCloud.Module.Tests.ps1` — `Exports expected functions` now asserts `Invoke-TCGDriverUpdate` is present
+
+## Phase 10: Remove Legacy OSDCloud Fallback from Deployment Script ✅ Complete
+
+### Dependency removed: `Import-Module OSD` and `Start-OSDCloud` fallback in deployment engine
+
+`Scripts/StartNet/Invoke-OSDCloudDeployment.ps1` contained the last active `Import-Module OSD` and `Start-OSDCloud` calls, guarded behind an `env:TCG_USE_OSDCLOUD=true` environment variable. With all 9 prior phases complete and the native `Start-TCGDeploy` engine fully validated, the legacy fallback is no longer needed.
+
+### What changed
+
+- Removed the `if ($env:TCG_USE_OSDCLOUD -eq 'true')` conditional branch that imported OSD and called `Start-OSDCloud`
+- The script now always uses the native `Start-TCGDeploy` engine
+- Removed the `$Global:MyOSDCloud` configuration hashtable (only used by legacy engine)
+- Updated error message to no longer reference the fallback option
+- Updated script header comment to reflect the single engine path
+
+### Zero active OSD dependencies remaining
+
+After this phase, there are **zero** active `Import-Module OSD` or `Start-OSDCloud` calls in any production script. The only remaining OSDCloud/OSD references are:
+- Directory paths (`X:\OSDCloud\...`) — inherited USB structure convention
+- Comments and documentation — historical references
+- Test assertions — verifying OSD is **not** imported
+
+### Changes
+
+| File | Before | After |
+|---|---|---|
+| `Scripts/StartNet/Invoke-OSDCloudDeployment.ps1` | Dual-engine: `TCG_USE_OSDCLOUD=true` → OSD, else → TCGDeploy | Single engine: always `Start-TCGDeploy` |
+| `README.md` | "Applies the Windows image via OSDCloud" | "Applies the Windows image via the native TCGCloud engine" |
+| `README.md` | `Import-Module OSD` listed as "Optional (graceful fallback)" | Marked as "Removed — no longer imported (Phase 10)" |
+| `README.md` | "64 Pester tests across 4 test files" | "142+ Pester tests across 7 test files" |
+
+### Tests added (3 new)
+
+- `Invoke-OSDCloudDeployment.ps1` does not contain `Import-Module OSD`
+- `Invoke-OSDCloudDeployment.ps1` does not contain `Start-OSDCloud`
+- `Invoke-OSDCloudDeployment.ps1` does not reference `TCG_USE_OSDCLOUD` environment variable

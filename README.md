@@ -11,7 +11,7 @@ TCGCloud automates the full lifecycle of Windows device deployment:
 3. **Autopilot Detection** — Checks if the device is already registered in Microsoft Autopilot via Graph API
 4. **Interactive UI** — WPF overlay lets technicians select Country, Device Type (Persona), and Language — or auto-deploys if already registered
 5. **Disk Setup** — Handles RAID detection (PERC, MegaRAID, LSI), Storage Spaces, and GPT partitioning (ESP/MSR/Windows)
-6. **OS Deployment** — Applies the Windows image via OSDCloud with enterprise settings
+6. **OS Deployment** — Applies the Windows image via the native TCGCloud engine with enterprise settings
 7. **Post-Install** — Runs Windows Update, installs drivers, deploys Office, and cleans up
 
 ## Deployment Methods
@@ -312,8 +312,8 @@ This project currently depends on the [OSDCloud](https://www.osdcloud.com/) Powe
 | `New-OSDCloudUSB` | Setup-OSDCloudUSB.ps1 | Formats USB and copies boot media | ✅ `New-TCGUSB` (Phase 3) |
 | `Edit-OSDCloudWinPE` | Setup-OSDCloudUSB.ps1 | Customizes WinPE (wallpaper, drivers, WiFi) | ✅ `Edit-TCGWinPE` (Phase 3) |
 | `Update-OSDCloudUSB` | Setup-OSDCloudUSB.ps1 | Adds OS installation files to USB | ✅ `Update-TCGUSB` (Phase 3) |
-| `Import-Module OSD` | _init.ps1, Show-OSDCloudOverlay.ps1 | Core OSD helper functions in WinPE | Optional (graceful fallback) |
-| `Start-OSDCloud` | Invoke-OSDCloudDeployment.ps1 | Executes Windows image deployment | ✅ `Start-TCGDeploy` (Phase 4) |
+| `Import-Module OSD` | _init.ps1, Show-OSDCloudOverlay.ps1 | Core OSD helper functions in WinPE | ✅ Removed — no longer imported (Phase 10) |
+| `Start-OSDCloud` | Invoke-OSDCloudDeployment.ps1 | Executes Windows image deployment | ✅ `Start-TCGDeploy` (Phase 4); legacy fallback removed (Phase 10) |
 | `Start-WinREWiFi` | _init.ps1 | WiFi connection in WinPE | ✅ `Connect-TCGWiFi` (Phase 1) |
 
 See [OSDCLOUD_REPLACEMENT_PLAN.md](OSDCLOUD_REPLACEMENT_PLAN.md) for the full migration strategy.
@@ -335,7 +335,7 @@ See [OSDCLOUD_REPLACEMENT_PLAN.md](OSDCLOUD_REPLACEMENT_PLAN.md) for the full mi
 - **Disk function edge cases** — RAID detection relies on friendly name matching (`PERC`, `MegaRAID`, `LSI`); may miss newer controllers
 
 ### Maintainability
-- ~~**No tests**~~ ✅ Resolved — 64 Pester tests across 4 test files covering module structure, deployment logic (Phase 5), input validation, and secret leakage
+- ~~**No tests**~~ ✅ Resolved — 142+ Pester tests across 7 test files covering module structure, deployment logic, driver updates, input validation, and secret leakage
 - **Version tracking** — No version metadata beyond the repo name
 
 ## License

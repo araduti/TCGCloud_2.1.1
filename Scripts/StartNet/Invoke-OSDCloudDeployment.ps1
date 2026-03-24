@@ -4,8 +4,7 @@
 #
 # This script is designed to run inside an encoded PowerShell process launched
 # from the WPF overlay. It reads selections from JSON files, prepares the disk,
-# and starts the OS deployment using either Start-TCGDeploy (default) or the
-# legacy Start-OSDCloud engine (set env:TCG_USE_OSDCLOUD=true to fall back).
+# and starts the OS deployment using the native Start-TCGDeploy engine.
 
 $VerbosePreference = 'Continue'
 $ProgressPreference = 'Continue'
@@ -54,74 +53,42 @@ try {
     }
 
     # -------------------------------------------------------------------------
-    # Deployment engine selection
-    # Set env:TCG_USE_OSDCLOUD=true to fall back to the legacy OSDCloud engine.
-    # Default is the native Start-TCGDeploy engine (no OSDCloud dependency).
+    # Deployment engine — native Start-TCGDeploy (no OSDCloud dependency)
     # -------------------------------------------------------------------------
-    if ($env:TCG_USE_OSDCLOUD -eq 'true') {
-        Write-Host 'OSDStatus: Using legacy OSDCloud engine (TCG_USE_OSDCLOUD=true)' -ForegroundColor Yellow
+    Write-Host 'OSDStatus: Using native TCGDeploy engine' -ForegroundColor Cyan
 
-        # OSDCloud global configuration
-        $Global:MyOSDCloud = [ordered]@{
-            Restart               = $true
-            RecoveryPartition     = $true
-            OEMActivation         = $true
-            WindowsUpdate         = $false
-            WindowsUpdateDrivers  = $false
-            WindowsDefenderUpdate = $false
-            SetTimeZone           = $true
-            ClearDiskConfirm      = $false
-            ShutdownSetupComplete = $false
-            SyncMSUpCatDriverUSB  = $true
-            CheckSHA1             = $false
-            SkipClearDisk         = $true
-            SkipNewOSDisk         = $true
-        }
-
-        Import-Module OSD -Force
-
-        Start-OSDCloud -OSLanguage $selections.Language `
-            -OSVersion $osSelection.OSVersion -OSBuild $osSelection.OSBuild `
-            -OSEdition 'Enterprise' -OSActivation 'Volume' `
-            -SkipAutopilot -SkipODT -ZTI -Verbose |
-        Tee-Object -FilePath 'X:\OSDCloud\Logs\TCGCloud-Output.log'
+    # Load the TCGCloud module (available in USB boot; also injected into WinPE by Edit-TCGWinPE)
+    $tcgModulePath = 'X:\OSDCloud\Config\Scripts\Modules\TCGCloud\TCGCloud.psd1'
+    if (Test-Path $tcgModulePath) {
+        Import-Module $tcgModulePath -Force
     }
     else {
-        Write-Host 'OSDStatus: Using native TCGDeploy engine' -ForegroundColor Cyan
-
-        # Load the TCGCloud module (available in USB boot; also injected into WinPE by Edit-TCGWinPE)
-        $tcgModulePath = 'X:\OSDCloud\Config\Scripts\Modules\TCGCloud\TCGCloud.psd1'
-        if (Test-Path $tcgModulePath) {
-            Import-Module $tcgModulePath -Force
+        # Dot-source the function directly if the module is not installed in WinPE
+        $startTcgDeploy = 'X:\OSDCloud\Config\Scripts\Modules\TCGCloud\Public\Start-TCGDeploy.ps1'
+        if (Test-Path $startTcgDeploy) {
+            . $startTcgDeploy
         }
         else {
-            # Dot-source the function directly if the module is not installed in WinPE
-            $startTcgDeploy = 'X:\OSDCloud\Config\Scripts\Modules\TCGCloud\Public\Start-TCGDeploy.ps1'
-            if (Test-Path $startTcgDeploy) {
-                . $startTcgDeploy
-            }
-            else {
-                throw 'Start-TCGDeploy not found. Ensure the TCGCloud module is embedded in WinPE or set TCG_USE_OSDCLOUD=true to fall back.'
-            }
+            throw 'Start-TCGDeploy not found. Ensure the TCGCloud module is embedded in WinPE.'
         }
+    }
 
-        $deployParams = @{
-            OSLanguage    = $selections.Language
-            OSVersion     = $osSelection.OSVersion
-            OSBuild       = $osSelection.OSBuild
-            OSEdition     = 'Enterprise'
-            OSActivation  = 'Volume'
-            SkipAutopilot = $true   # Autopilot registration is handled by Invoke-ImportAutopilot.ps1 before deployment
-            SkipODT       = $true
-            ZTI           = $true
-            ScriptsRoot   = 'X:\OSDCloud\Config\Scripts'
-        }
+    $deployParams = @{
+        OSLanguage    = $selections.Language
+        OSVersion     = $osSelection.OSVersion
+        OSBuild       = $osSelection.OSBuild
+        OSEdition     = 'Enterprise'
+        OSActivation  = 'Volume'
+        SkipAutopilot = $true   # Autopilot registration is handled by Invoke-ImportAutopilot.ps1 before deployment
+        SkipODT       = $true
+        ZTI           = $true
+        ScriptsRoot   = 'X:\OSDCloud\Config\Scripts'
+    }
 
-        $deployResult = Start-TCGDeploy @deployParams
+    $deployResult = Start-TCGDeploy @deployParams
 
-        if (-not $deployResult.Success) {
-            throw "Start-TCGDeploy failed: $($deployResult.Message)"
-        }
+    if (-not $deployResult.Success) {
+        throw "Start-TCGDeploy failed: $($deployResult.Message)"
     }
 
     # Verify OS files exist after deployment
