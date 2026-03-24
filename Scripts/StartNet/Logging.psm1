@@ -13,9 +13,9 @@ if (Test-Path $tcgLoggingPath) {
 }
 
 # ─── Module-level state ──────────────────────────────────────────────────────
-$script:LogFile        = "X:\OSDCloud\Logs\OSDCloud.log"
-$script:TranscriptFile = "X:\OSDCloud\Logs\OSDCloud-Transcript.log"
-$script:ErrorFile      = "X:\OSDCloud\Logs\OSDCloud-Errors.log"
+$script:LogFile        = "X:\OSDCloud\Logs\TCGCloud.log"
+$script:TranscriptFile = "X:\OSDCloud\Logs\TCGCloud-Transcript.log"
+$script:ErrorFile      = "X:\OSDCloud\Logs\TCGCloud-Errors.log"
 $script:LogLevels      = @{ DEBUG = 0; INFO = 1; WARNING = 2; ERROR = 3; CRITICAL = 4 }
 $script:CurrentLogLevel = 1  # INFO
 
@@ -31,9 +31,9 @@ function Initialize-Logging {
         New-Item -Path $LogPath -ItemType Directory -Force | Out-Null
     }
 
-    $script:LogFile        = Join-Path $LogPath "OSDCloud.log"
-    $script:TranscriptFile = Join-Path $LogPath "OSDCloud-Transcript.log"
-    $script:ErrorFile      = Join-Path $LogPath "OSDCloud-Errors.log"
+    $script:LogFile        = Join-Path $LogPath "TCGCloud.log"
+    $script:TranscriptFile = Join-Path $LogPath "TCGCloud-Transcript.log"
+    $script:ErrorFile      = Join-Path $LogPath "TCGCloud-Errors.log"
     $script:CurrentLogLevel = if ($script:LogLevels.ContainsKey($LogLevel.ToUpper())) {
         $script:LogLevels[$LogLevel.ToUpper()]
     } else { 1 }

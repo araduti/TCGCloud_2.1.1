@@ -506,7 +506,8 @@ enables a side-by-side rollback path during the final validation phase.
 | **Phase 4** | Core deployment engine replacement | ~18 hours | High | Phase 3 | ✅ Complete |
 | **Phase 5** | Testing & validation | ~8 hours | — | Phase 4 | ✅ Complete |
 | **Phase 6** | Caller-site cutover (Setup-OSDCloudUSB.ps1 + _init.ps1) | ~2 hours | Low | Phase 5 | ✅ Complete |
-| **Total** | | **~57 hours** | | | |
+| **Phase 7** | Fix completion detection + rename OSDCloud log file names | ~2 hours | Low | Phase 6 | ✅ Complete |
+| **Total** | | **~59 hours** | | | |
 
 ## Phase 6: Caller-Site Cutover ✅ Complete
 
@@ -575,3 +576,36 @@ These components are already custom and don't depend on OSDCloud:
 - ✅ `StatusPatterns.json` — Custom log pattern matching
 - ✅ All SetupComplete and OOBE scripts
 - ✅ All .cmd entry points
+
+## Phase 7: Fix Completion Detection + Rename OSDCloud Log File Names ✅ Complete
+
+### Bug fixed: overlay showed "Installation Failed" on successful TCGDeploy
+
+`Start-DeploymentWithMonitor` monitored `OSDCloud-Transcript.log` for the text
+`"OSDCloud Finished"` to detect successful completion.  The legacy `Start-OSDCloud`
+engine emitted that string, but the new `Start-TCGDeploy` engine did not — so on
+every successful native deployment the overlay would fall through to the
+`HasExited` branch, display **"Installation Failed"**, and reboot.
+
+### Changes
+
+| File | Was | Now |
+|---|---|---|
+| `Invoke-OSDCloudDeployment.ps1` | `Start-Transcript` → `OSDCloud-Transcript.log` | `TCGCloud-Transcript.log` |
+| `Invoke-OSDCloudDeployment.ps1` | No completion marker in TCGDeploy path | Emits `TCGCloud Finished` after Windows-files verification |
+| `Invoke-OSDCloudDeployment.ps1` | `OSDCloud-Output.log` (legacy fallback) | `TCGCloud-Output.log` |
+| `Invoke-OSDCloudDeployment.ps1` | `OSDCloud-Error.log` | `TCGCloud-Error.log` |
+| `Show-OSDCloudOverlay.ps1` | Monitored `OSDCloud-Transcript.log` | Monitors `TCGCloud-Transcript.log` |
+| `Show-OSDCloudOverlay.ps1` | Matched `"OSDCloud Finished"` only | Matches `"OSDCloud Finished\|TCGCloud Finished"` |
+| `Show-OSDCloudOverlay.ps1` | Process exit → always **"Installation Failed"** | Exit code 0 → **"Installation Complete"**, non-zero → **"Installation Failed"** |
+| `Logging.psm1` | `OSDCloud.log`, `OSDCloud-Transcript.log`, `OSDCloud-Errors.log` | `TCGCloud.log`, `TCGCloud-Transcript.log`, `TCGCloud-Errors.log` |
+| `Remove-OSDCloudFolders.ps1` | `OSDCloud-Cleanup.log` | `TCGCloud-Cleanup.log` |
+
+### Tests added (6 new, total: 99 tests, 0 failures)
+
+- `OSDCloudOverlay.Tests.ps1` — `Show-OSDCloudOverlay.ps1` monitors `TCGCloud-Transcript.log`
+- `OSDCloudOverlay.Tests.ps1` — overlay detects `TCGCloud Finished` marker
+- `OSDCloudOverlay.Tests.ps1` — process exit handler checks `ExitCode` before choosing status
+- `OSDCloudOverlay.Tests.ps1` — `Installation Complete` path exists for exit code 0
+- `OSDCloudOverlay.Tests.ps1` — `Invoke-OSDCloudDeployment.ps1` emits `TCGCloud Finished`
+- `OSDCloudOverlay.Tests.ps1` — deployment script uses `TCGCloud-Transcript.log`

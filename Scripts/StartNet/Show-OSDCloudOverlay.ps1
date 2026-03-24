@@ -286,7 +286,7 @@ function Start-DeploymentWithMonitor {
     $OsdTimer.Interval = [TimeSpan]::FromSeconds(1)
     $OsdTimer.Add_Tick({
         try {
-            $OsdLogPath = "X:\OSDCloud\Logs\OSDCloud-Transcript.log"
+            $OsdLogPath = "X:\OSDCloud\Logs\TCGCloud-Transcript.log"
             if (Test-Path $OsdLogPath) {
                 $AllOSDLines = Get-Content $OsdLogPath -ErrorAction SilentlyContinue
                 if ($AllOSDLines -and $AllOSDLines.Count -gt $script:OsdLastCount) {
@@ -304,8 +304,8 @@ function Start-DeploymentWithMonitor {
                         }
 
                         # Check for completion markers
-                        if ($Line -match "OSDCloud Finished") {
-                            Write-Host "OSDCloud installation complete, initiating reboot..."
+                        if ($Line -match "OSDCloud Finished|TCGCloud Finished") {
+                            Write-Host "TCGCloud installation complete, initiating reboot..."
                             Update-Status "Installation Complete" "Rebooting..."
                             # Wait a few seconds to show the status
                             Start-Sleep -Seconds 3
@@ -330,8 +330,13 @@ function Start-DeploymentWithMonitor {
 
             # Also check if the process has exited
             if ($script:Process.HasExited) {
-                Write-Host "OSDCloud process exited with code: $($script:Process.ExitCode)"
-                Update-Status "Installation Failed" ""
+                $exitCode = $script:Process.ExitCode
+                Write-Host "TCGCloud deployment process exited with code: $exitCode"
+                if ($exitCode -eq 0) {
+                    Update-Status "Installation Complete" "Rebooting..."
+                } else {
+                    Update-Status "Installation Failed" ""
+                }
                 # Wait a few seconds to show the status
                 Start-Sleep -Seconds 3
                 # Initiate reboot

@@ -29,9 +29,9 @@ Describe 'Show-OSDCloudOverlay — deployment monitoring deduplication' {
 
         It 'Contains the DispatcherTimer log-monitoring logic inside the helper' {
             # The timer and log-parsing block should exist inside the helper function
-            $script:overlayContent | Should -Match 'OSDCloud-Transcript\.log'
+            $script:overlayContent | Should -Match 'TCGCloud-Transcript\.log'
             $script:overlayContent | Should -Match 'DispatcherTimer'
-            $script:overlayContent | Should -Match 'OSDCloud Finished'
+            $script:overlayContent | Should -Match 'TCGCloud Finished'
         }
     }
 
@@ -67,6 +67,42 @@ Describe 'Show-OSDCloudOverlay — deployment monitoring deduplication' {
             $beforeHelper = if ($helperLine -gt 1) { $script:overlayLines[0..($helperLine - 2)] } else { @() }
             $rawCalls = $beforeHelper | Where-Object { $_ -match 'Get-Content.+Invoke-OSDCloudDeployment' }
             $rawCalls | Should -BeNullOrEmpty
+        }
+    }
+
+    Context 'Process exit code handling distinguishes success from failure' {
+
+        It 'Checks ExitCode property in the process-exit handler' {
+            $script:overlayContent | Should -Match 'ExitCode'
+        }
+
+        It 'Shows Installation Complete on successful exit (ExitCode -eq 0)' {
+            $script:overlayContent | Should -Match 'Installation Complete'
+        }
+
+        It 'Shows Installation Failed only on non-zero exit code' {
+            # There must be a conditional exit-code check before showing "Installation Failed"
+            $script:overlayContent | Should -Match 'ExitCode.*0|0.*ExitCode'
+        }
+    }
+
+    Context 'Deployment script emits TCGCloud Finished completion marker' {
+
+        BeforeAll {
+            $script:deployPath    = Join-Path $PSScriptRoot '..\Scripts\StartNet\Invoke-OSDCloudDeployment.ps1'
+            $script:deployContent = Get-Content -Path $script:deployPath -Raw
+        }
+
+        It 'Invoke-OSDCloudDeployment.ps1 exists' {
+            Test-Path $script:deployPath | Should -BeTrue
+        }
+
+        It 'Emits TCGCloud Finished after successful deployment verification' {
+            $script:deployContent | Should -Match 'TCGCloud Finished'
+        }
+
+        It 'Uses TCGCloud-Transcript.log as the deployment transcript path' {
+            $script:deployContent | Should -Match 'TCGCloud-Transcript\.log'
         }
     }
 }

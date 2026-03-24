@@ -11,7 +11,7 @@ $VerbosePreference = 'Continue'
 $ProgressPreference = 'Continue'
 $ErrorActionPreference = 'Continue'
 
-Start-Transcript -Path "X:\OSDCloud\Logs\OSDCloud-Transcript.log" -Force
+Start-Transcript -Path "X:\OSDCloud\Logs\TCGCloud-Transcript.log" -Force
 
 try {
     $selections = Get-Content "X:\OSDCloud\Config\Scripts\Custom\osd-selections.json" | ConvertFrom-Json
@@ -84,7 +84,7 @@ try {
             -OSVersion $osSelection.OSVersion -OSBuild $osSelection.OSBuild `
             -OSEdition 'Enterprise' -OSActivation 'Volume' `
             -SkipAutopilot -SkipODT -ZTI -Verbose |
-        Tee-Object -FilePath 'X:\OSDCloud\Logs\OSDCloud-Output.log'
+        Tee-Object -FilePath 'X:\OSDCloud\Logs\TCGCloud-Output.log'
     }
     else {
         Write-Host 'OSDStatus: Using native TCGDeploy engine' -ForegroundColor Cyan
@@ -133,6 +133,7 @@ try {
         foreach ($vol in $windowsDrives) {
             Write-Host "Windows files found on drive $($vol.DriveLetter): — installation successful" -ForegroundColor Green
         }
+        Write-Host 'TCGCloud Finished'
     }
     else {
         Write-Host 'ERROR: Windows files not found on any drive — installation may have failed' -ForegroundColor Red
@@ -141,7 +142,7 @@ try {
 }
 catch {
     Write-Error "Error in deployment process: $_"
-    $_ | Out-File -FilePath 'X:\OSDCloud\Logs\OSDCloud-Error.log' -Append
+    $_ | Out-File -FilePath 'X:\OSDCloud\Logs\TCGCloud-Error.log' -Append
     throw
 }
 finally {
