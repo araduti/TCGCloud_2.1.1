@@ -22,7 +22,7 @@ Downloads WinPE boot media from a GitHub Release, configures a one-time RAM-disk
 
 ```powershell
 # One-liner: download and run
-irm https://github.com/araduti/TCGCloud_2.1.1/releases/latest/download/Start-NetworkDeploy.ps1 -OutFile Start-NetworkDeploy.ps1
+irm https://raw.githubusercontent.com/araduti/TCGCloud_2.1.1/main/Start-NetworkDeploy.ps1 -OutFile Start-NetworkDeploy.ps1
 .\Start-NetworkDeploy.ps1
 ```
 
