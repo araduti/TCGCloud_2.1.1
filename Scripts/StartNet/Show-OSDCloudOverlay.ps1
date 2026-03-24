@@ -269,6 +269,83 @@ function Update-TechnicalInfo {
     }
 }
 
+function Start-DeploymentWithMonitor {
+    # Launch Invoke-OSDCloudDeployment.ps1 in a hidden PowerShell process and
+    # monitor its transcript log with a WPF DispatcherTimer, updating the UI
+    # as each log line arrives.  Both the registered-device and the
+    # unregistered-device (post-Autopilot) code paths use this shared helper.
+    $ScriptBlock = Get-Content -Path "X:\OSDCloud\Config\Scripts\StartNet\Invoke-OSDCloudDeployment.ps1" -Raw
+    $OsdBytes    = [System.Text.Encoding]::Unicode.GetBytes($ScriptBlock)
+    $OsdEncoded  = [Convert]::ToBase64String($OsdBytes)
+    $script:Process = Start-Process powershell.exe `
+        -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', $OsdEncoded `
+        -WindowStyle Hidden -PassThru
+
+    $script:OsdLastCount = 0
+    $OsdTimer = New-Object System.Windows.Threading.DispatcherTimer
+    $OsdTimer.Interval = [TimeSpan]::FromSeconds(1)
+    $OsdTimer.Add_Tick({
+        try {
+            $OsdLogPath = "X:\OSDCloud\Logs\OSDCloud-Transcript.log"
+            if (Test-Path $OsdLogPath) {
+                $AllOSDLines = Get-Content $OsdLogPath -ErrorAction SilentlyContinue
+                if ($AllOSDLines -and $AllOSDLines.Count -gt $script:OsdLastCount) {
+                    $NewLines = $AllOSDLines[$script:OsdLastCount..($AllOSDLines.Count - 1)]
+                    $script:OsdLastCount = $AllOSDLines.Count
+
+                    foreach ($Line in $NewLines) {
+                        # Technical view - show all non-empty raw log lines
+                        if ($script:TechnicalViewEnabled) {
+                            if ($Line.Trim() -ne "") {
+                                Update-Status "TECHNICAL VIEW" "Raw OSDCloud Log" $Line
+                            }
+                            # Continue to next line to avoid processing through the status map
+                            continue
+                        }
+
+                        # Check for completion markers
+                        if ($Line -match "OSDCloud Finished") {
+                            Write-Host "OSDCloud installation complete, initiating reboot..."
+                            Update-Status "Installation Complete" "Rebooting..."
+                            # Wait a few seconds to show the status
+                            Start-Sleep -Seconds 3
+                            # Initiate reboot
+                            Start-Process wpeutil reboot
+                            return
+                        }
+
+                        # Standard view - process through status map
+                        $MessageUpdated = $false
+                        foreach ($Rule in $script:StatusPatterns) {
+                            if ($Line -match $Rule.Pattern) {
+                                $Msg = $ExecutionContext.InvokeCommand.ExpandString($Rule.Message)
+                                Update-Status "Setting up your device" $Msg $Line
+                                $MessageUpdated = $true
+                                break
+                            }
+                        }
+                    }
+                }
+            }
+
+            # Also check if the process has exited
+            if ($script:Process.HasExited) {
+                Write-Host "OSDCloud process exited with code: $($script:Process.ExitCode)"
+                Update-Status "Installation Failed" ""
+                # Wait a few seconds to show the status
+                Start-Sleep -Seconds 3
+                # Initiate reboot
+                Start-Process wpeutil reboot
+                return
+            }
+        }
+        catch {
+            Write-Host "Error in OSDCloud timer tick: $($_.Exception.Message)"
+        }
+    })
+    $OsdTimer.Start()
+}
+
 function Show-OSDCloudOverlay {
     [CmdletBinding()]
     param()
@@ -554,78 +631,8 @@ function Show-OSDCloudOverlay {
                                     New-Item -Path (Split-Path $selectionsPath) -ItemType Directory -Force -ErrorAction SilentlyContinue
                                     $selections | ConvertTo-Json | Set-Content -Path $selectionsPath -Force
                                     
-                                    # Start OSDCloud process (shared deployment script)
-                                    $ScriptBlock = Get-Content -Path "X:\OSDCloud\Config\Scripts\StartNet\Invoke-OSDCloudDeployment.ps1" -Raw
-                                    # Encode and launch the OSDCloud process
-                                    $OsdBytes = [System.Text.Encoding]::Unicode.GetBytes($ScriptBlock)
-                                    $OsdEncoded = [Convert]::ToBase64String($OsdBytes)
-                                    $script:Process = Start-Process powershell.exe `
-                                        -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', $OsdEncoded `
-                                        -WindowStyle Hidden -PassThru
-                                    
-                                    $script:OsdLastCount = 0
-                                    $OsdTimer = New-Object System.Windows.Threading.DispatcherTimer
-                                    $OsdTimer.Interval = [TimeSpan]::FromSeconds(1)
-                                    $OsdTimer.Add_Tick({
-                                        try {
-                                            $OsdLogPath = "X:\OSDCloud\Logs\OSDCloud-Transcript.log"
-                                            if (Test-Path $OsdLogPath) {
-                                                $AllOSDLines = Get-Content $OsdLogPath -ErrorAction SilentlyContinue
-                                                if ($AllOSDLines -and $AllOSDLines.Count -gt $script:OsdLastCount) {
-                                                    $NewLines = $AllOSDLines[$script:OsdLastCount..($AllOSDLines.Count - 1)]
-                                                    $script:OsdLastCount = $AllOSDLines.Count
-                                                    
-                                                    foreach ($Line in $NewLines) {
-                                                        # Technical view - show all non-empty raw log lines
-                                                        if ($script:TechnicalViewEnabled) {
-                                                            if ($Line.Trim() -ne "") {
-                                                                Update-Status "TECHNICAL VIEW" "Raw OSDCloud Log" $Line
-                                                            }
-                                                            # Continue to next line to avoid processing through the status map
-                                                            continue
-                                                        }
-                                                        
-                                                        # Check for completion markers
-                                                        if ($Line -match "OSDCloud Finished") {
-                                                            Write-Host "OSDCloud installation complete, initiating reboot..."
-                                                            Update-Status "Installation Complete" "Rebooting..."
-                                                            # Wait a few seconds to show the status
-                                                            Start-Sleep -Seconds 3
-                                                            # Initiate reboot
-                                                            Start-Process wpeutil reboot
-                                                            return
-                                                        }
-
-                                                        # Standard view - process through status map
-                                                        $MessageUpdated = $false
-                                                        foreach ($Rule in $script:StatusPatterns) {
-                                                            if ($Line -match $Rule.Pattern) {
-                                                                $Msg = $ExecutionContext.InvokeCommand.ExpandString($Rule.Message)
-                                                                Update-Status "Setting up your device" $Msg $Line
-                                                                $MessageUpdated = $true
-                                                                break
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            }
-
-                                            # Also check if the process has exited
-                                            if ($script:Process.HasExited) {
-                                                Write-Host "OSDCloud process exited with code: $($script:Process.ExitCode)"
-                                                Update-Status "Installation Failed" ""
-                                                # Wait a few seconds to show the status
-                                                Start-Sleep -Seconds 3
-                                                # Initiate reboot
-                                                Start-Process wpeutil reboot
-                                                return
-                                            }
-                                        }
-                                        catch {
-                                            Write-Host "Error in OSDCloud timer tick: $($_.Exception.Message)"
-                                        }
-                                    })
-                                    $OsdTimer.Start()
+                                    # Start OSDCloud process (shared deployment script) and monitor its log
+                                    Start-DeploymentWithMonitor
                                 } else {
                                     Write-Host "Failed to get Autopilot status or GroupTag"
                                     Update-Status "Error" "Failed to get device information"
@@ -866,78 +873,8 @@ function Show-OSDCloudOverlay {
                                         Write-Host "Autopilot registration successful, starting OSDCloud..."
                                         Update-Status "Setting up your device" "Starting installation..."
                                         
-                                        # Start OSDCloud process (shared deployment script)
-                                        $ScriptBlock = Get-Content -Path "X:\OSDCloud\Config\Scripts\StartNet\Invoke-OSDCloudDeployment.ps1" -Raw
-                                        # Encode and launch the OSDCloud process
-                                        $OsdBytes = [System.Text.Encoding]::Unicode.GetBytes($ScriptBlock)
-                                        $OsdEncoded = [Convert]::ToBase64String($OsdBytes)
-                                        $script:Process = Start-Process powershell.exe `
-                                            -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', $OsdEncoded `
-                                            -WindowStyle Hidden -PassThru
-                                    
-                                        $script:OsdLastCount = 0
-                                        $OsdTimer = New-Object System.Windows.Threading.DispatcherTimer
-                                        $OsdTimer.Interval = [TimeSpan]::FromSeconds(1)
-                                        $OsdTimer.Add_Tick({
-                                                try {
-                                                    $OsdLogPath = "X:\OSDCloud\Logs\OSDCloud-Transcript.log"
-                                                    if (Test-Path $OsdLogPath) {
-                                                        $AllOSDLines = Get-Content $OsdLogPath -ErrorAction SilentlyContinue
-                                                        if ($AllOSDLines -and $AllOSDLines.Count -gt $script:OsdLastCount) {
-                                                            $NewLines = $AllOSDLines[$script:OsdLastCount..($AllOSDLines.Count - 1)]
-                                                            $script:OsdLastCount = $AllOSDLines.Count
-                                                            
-                                                            foreach ($Line in $NewLines) {
-                                                                # Technical view - show all non-empty raw log lines
-                                                                if ($script:TechnicalViewEnabled) {
-                                                                    if ($Line.Trim() -ne "") {
-                                                                        Update-Status "TECHNICAL VIEW" "Raw OSDCloud Log" $Line
-                                                                    }
-                                                                    # Continue to next line to avoid processing through the status map
-                                                                    continue
-                                                                }
-                                                                
-                                                                # Check for completion markers
-                                                                if ($Line -match "OSDCloud Finished") {
-                                                                    Write-Host "OSDCloud installation complete, initiating reboot..."
-                                                                    Update-Status "Installation Complete" "Rebooting..."
-                                                                    # Wait a few seconds to show the status
-                                                                    Start-Sleep -Seconds 3
-                                                                    # Initiate reboot
-                                                                    Start-Process wpeutil reboot
-                                                                    return
-                                                                }
-
-                                                                # Standard view - process through status map
-                                                                $MessageUpdated = $false
-                                                                foreach ($Rule in $script:StatusPatterns) {
-                                                                    if ($Line -match $Rule.Pattern) {
-                                                                        $Msg = $ExecutionContext.InvokeCommand.ExpandString($Rule.Message)
-                                                                        Update-Status "Setting up your device" $Msg $Line
-                                                                        $MessageUpdated = $true
-                                                                        break
-                                                                    }
-                                                                }
-                                                            }
-                                                        }
-                                                    }
-
-                                                    # Also check if the process has exited
-                                                    if ($script:Process.HasExited) {
-                                                        Write-Host "OSDCloud process exited with code: $($script:Process.ExitCode)"
-                                                        Update-Status "Installation Failed" ""
-                                                        # Wait a few seconds to show the status
-                                                        Start-Sleep -Seconds 3
-                                                        # Initiate reboot
-                                                        Start-Process wpeutil reboot
-                                                        return
-                                                    }
-                                                }
-                                                catch {
-                                                    Write-Host "Error in OSDCloud timer tick: $($_.Exception.Message)"
-                                                }
-                                            })
-                                        $OsdTimer.Start()
+                                        # Start OSDCloud process (shared deployment script) and monitor its log
+                                        Start-DeploymentWithMonitor
                                     }
                                     else {
                                         $errorMessage = if ($FinalResult -match "^FINAL_RESULT:\s*(.+)$") {
