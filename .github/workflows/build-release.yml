@@ -85,7 +85,7 @@ jobs:
           ### Quick Start — Network Deployment
           ```powershell
           # On the target machine (requires admin):
-          irm https://github.com/${{ github.repository }}/releases/download/$tag/Start-NetworkDeploy.ps1 -OutFile Start-NetworkDeploy.ps1
+          irm https://raw.githubusercontent.com/${{ github.repository }}/$tag/Start-NetworkDeploy.ps1 -OutFile Start-NetworkDeploy.ps1
           .\Start-NetworkDeploy.ps1
           ```
 
